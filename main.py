@@ -1,0 +1,133 @@
+import os
+import sqlite3
+from contextlib import closing
+from datetime import datetime, timezone
+from pathlib import Path
+from typing import Literal
+
+from fastapi import FastAPI, Query
+from pydantic import BaseModel, Field
+
+DB_PATH = Path(os.environ.get("TELEMETRY_DB", "telemetry.db"))
+
+app = FastAPI(title="Bus Stop Telemetry Demo", version="0.1.0")
+
+
+class Reading(BaseModel):
+    device_id: str = Field(min_length=1, max_length=64)
+    timestamp: datetime
+    temperature_c: float = Field(ge=-20, le=70)
+    humidity_pct: float = Field(ge=0, le=100)
+    water_level_pct: float = Field(ge=0, le=100)
+    power_w: float = Field(ge=0, le=5000)
+    cooler_on: bool
+    crowd_level: Literal["Low", "Moderate", "High", "Unknown"] = "Unknown"
+    crowd_source: Literal["simulated", "manual", "sensor", "operator", "unknown"] = "unknown"
+    fault_code: str | None = Field(default=None, max_length=64)
+
+
+def connect_db() -> sqlite3.Connection:
+    DB_PATH.parent.mkdir(parents=True, exist_ok=True)
+    connection = sqlite3.connect(DB_PATH)
+    connection.row_factory = sqlite3.Row
+    return connection
+
+
+def initialize_db() -> None:
+    with closing(connect_db()) as connection:
+        connection.execute(
+            """CREATE TABLE IF NOT EXISTS telemetry (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                device_id TEXT NOT NULL,
+                timestamp TEXT NOT NULL,
+                temperature_c REAL NOT NULL,
+                humidity_pct REAL NOT NULL,
+                water_level_pct REAL NOT NULL,
+                power_w REAL NOT NULL,
+                cooler_on INTEGER NOT NULL,
+                crowd_level TEXT NOT NULL DEFAULT 'Unknown',
+                crowd_source TEXT NOT NULL DEFAULT 'unknown',
+                fault_code TEXT
+            )"""
+        )
+        columns = {
+            row["name"] for row in connection.execute("PRAGMA table_info(telemetry)")
+        }
+        if "crowd_level" not in columns:
+            connection.execute(
+                "ALTER TABLE telemetry ADD COLUMN crowd_level TEXT NOT NULL DEFAULT 'Unknown'"
+            )
+        if "crowd_source" not in columns:
+            connection.execute(
+                "ALTER TABLE telemetry ADD COLUMN crowd_source TEXT NOT NULL DEFAULT 'unknown'"
+            )
+        connection.execute(
+            "CREATE INDEX IF NOT EXISTS idx_telemetry_device_time "
+            "ON telemetry(device_id, timestamp DESC)"
+        )
+        connection.commit()
+
+
+initialize_db()
+
+
+@app.get("/health")
+def health() -> dict[str, str]:
+    return {"status": "ok", "service": "bus-stop-telemetry-demo"}
+
+
+@app.post("/telemetry", status_code=201)
+def receive_telemetry(reading: Reading) -> dict[str, object]:
+    timestamp = reading.timestamp
+    if timestamp.tzinfo is None:
+        timestamp = timestamp.replace(tzinfo=timezone.utc)
+    payload = reading.model_dump()
+    payload["timestamp"] = timestamp.astimezone(timezone.utc).isoformat()
+
+    with closing(connect_db()) as connection:
+        cursor = connection.execute(
+            """INSERT INTO telemetry (
+                device_id, timestamp, temperature_c, humidity_pct,
+                water_level_pct, power_w, cooler_on, crowd_level, crowd_source, fault_code
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+            (
+                payload["device_id"],
+                payload["timestamp"],
+                payload["temperature_c"],
+                payload["humidity_pct"],
+                payload["water_level_pct"],
+                payload["power_w"],
+                int(payload["cooler_on"]),
+                payload["crowd_level"],
+                payload["crowd_source"],
+                payload["fault_code"],
+            ),
+        )
+        connection.commit()
+        reading_id = cursor.lastrowid
+
+    return {"ok": True, "id": reading_id, "device_id": payload["device_id"]}
+
+
+@app.get("/telemetry")
+def list_telemetry(
+    limit: int = Query(default=200, ge=1, le=2000),
+    device_id: str | None = Query(default=None, max_length=64),
+) -> dict[str, list[dict[str, object]]]:
+    sql = """SELECT id, device_id, timestamp, temperature_c, humidity_pct,
+                     water_level_pct, power_w, cooler_on, crowd_level, crowd_source,
+                     fault_code
+              FROM telemetry"""
+    params: list[object] = []
+    if device_id:
+        sql += " WHERE device_id = ?"
+        params.append(device_id)
+    sql += " ORDER BY timestamp DESC, id DESC LIMIT ?"
+    params.append(limit)
+
+    with closing(connect_db()) as connection:
+        rows = connection.execute(sql, params).fetchall()
+    items = [dict(row) for row in rows]
+    for item in items:
+        item["cooler_on"] = bool(item["cooler_on"])
+    return {"items": items}
