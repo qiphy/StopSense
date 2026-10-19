@@ -51,7 +51,13 @@ It posts an ESP32-shaped JSON reading every five seconds. Configure it with `DEV
 streamlit run dashboard.py
 ```
 
-The dashboard refreshes every five seconds. It displays current device status, temperature/humidity/water/power trends, stop-level waiting-crowd category, and recent readings. It has a prominent simulated-data warning. Crowd level describes people waiting at the stop, **not occupancy onboard a bus**; the simulator generates this field only to demonstrate the dashboard.
+The dashboard refreshes every five seconds and provides three views backed by the same stop telemetry:
+
+- **Passenger app:** stop temperature, humidity, waiting-area crowd level, and next-bus countdowns.
+- **Bus-stop screen:** a high-contrast, glanceable display with the next bus, crowd level, temperature, and humidity.
+- **Operations dashboard:** cooler state, water and power readings, faults, sensor history, and arrivals.
+
+Bus arrivals are simulated using simple route headways and are prominently labelled as estimates. They are not connected to bus GPS or a transit operator feed. For real arrivals, integrate an authorized operator API or GTFS-Realtime feed and show its source and update time. Stop crowd describes people waiting, **not occupancy onboard a bus**. All simulator values are synthetic.
 
 ## Shared ESP32/FastAPI payload
 
