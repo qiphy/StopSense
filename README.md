@@ -51,6 +51,8 @@ It posts an ESP32-shaped JSON reading every five seconds. Configure it with `DEV
 streamlit run dashboard.py
 ```
 
+Open the `Local URL` printed by Streamlit (usually <http://localhost:8501>). The three view tabs appear even if the API is not running: in that case the page shows clearly labelled local preview values so you can inspect the UI. Start the API and simulator below to replace the preview with incoming telemetry.
+
 The dashboard refreshes every five seconds and provides three views backed by the same stop telemetry:
 
 - **Passenger app:** stop temperature, humidity, waiting-area crowd level, and next-bus countdowns.

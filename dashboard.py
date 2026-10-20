@@ -21,22 +21,52 @@ st.caption(
 )
 
 
-def fetch_readings() -> pd.DataFrame | None:
+def preview_readings() -> pd.DataFrame:
+    now = pd.Timestamp.now(tz="UTC")
+    samples = [
+        ("demo-stop-01", 31.2, 72.0, 82.0, 13.8, True, "Moderate", None),
+        ("demo-stop-02", 33.4, 78.0, 61.0, 15.1, True, "High", None),
+        ("demo-stop-03", 30.1, 69.0, 94.0, 0.4, False, "Low", "STANDBY"),
+    ]
+    preview = pd.DataFrame(
+        [
+            {
+                "id": index,
+                "device_id": stop_id,
+                "timestamp": now,
+                "temperature_c": temperature,
+                "humidity_pct": humidity,
+                "water_level_pct": water,
+                "power_w": power,
+                "cooler_on": cooler_on,
+                "crowd_level": crowd,
+                "crowd_source": "simulated",
+                "fault_code": fault,
+            }
+            for index, (stop_id, temperature, humidity, water, power, cooler_on, crowd, fault)
+            in enumerate(samples, start=1)
+        ]
+    )
+    preview["timestamp"] = pd.to_datetime(preview["timestamp"], utc=True)
+    return preview
+
+
+def fetch_readings() -> pd.DataFrame:
     try:
         response = requests.get(f"{API_BASE_URL}/telemetry?limit=500", timeout=3)
         response.raise_for_status()
         items = response.json()["items"]
     except (requests.RequestException, ValueError, KeyError) as error:
         st.warning(
-            f"Cannot load stop readings from {API_BASE_URL}. Start the FastAPI server and simulator, "
-            "then refresh this page."
+            f"Telemetry API unavailable at {API_BASE_URL}; showing local preview data. "
+            "Start FastAPI and simulator.py to see incoming readings."
         )
         st.caption(str(error))
-        return None
+        return preview_readings()
 
     if not items:
-        st.info("No stop readings yet. Start simulator.py to populate the demo.")
-        return pd.DataFrame()
+        st.info("No API readings yet; showing local preview data. Start simulator.py to populate telemetry.")
+        return preview_readings()
 
     data = pd.DataFrame(items)
     data["timestamp"] = pd.to_datetime(data["timestamp"], utc=True, errors="coerce")
