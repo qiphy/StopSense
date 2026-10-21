@@ -178,7 +178,7 @@ function App() {
             {view === 'screen' && <StopScreen reading={reading} arrivals={arrivals} />}
             {view === 'operations' && <OperationsView readings={latest} reading={reading} arrivals={arrivals} />}
             <SolarGeneration />
-            <PassengerFlow reports={passengerCounts} />
+            {view === 'operations' && <PassengerFlow reports={passengerCounts} />}
           </>
         )}
 
