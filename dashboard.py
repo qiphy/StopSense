@@ -133,12 +133,12 @@ def render_views() -> None:
         top_arrival = simulated_arrivals(screen_stop)[0]
         st.markdown(
             f"""<div style="background:#102a43;color:white;padding:28px;border-radius:16px;">
-            <div style="font-size:18px;opacity:.85;">NEXT BUS · {html.escape(str(top_arrival['route']))}</div>
-            <div style="font-size:54px;font-weight:700;line-height:1.2;">
+            <div style="font-size:22px;opacity:.85;">NEXT BUS · {html.escape(str(top_arrival['route']))}</div>
+            <div style="font-size:58px;font-weight:700;line-height:1.2;">
             {html.escape(format_eta(int(top_arrival['eta_seconds'])))}</div>
-            <div style="font-size:24px;">{html.escape(str(top_arrival['destination']))}</div>
+            <div style="font-size:26px;">{html.escape(str(top_arrival['destination']))}</div>
             <hr style="border-color:#829ab1;">
-            <div style="font-size:20px;">{escaped_stop} · Waiting crowd:
+            <div style="font-size:22px;">{escaped_stop} · Waiting crowd:
             {html.escape(str(reading['crowd_level']))} ·
             {float(reading['temperature_c']):.1f} °C ·
             {float(reading['humidity_pct']):.0f}% humidity</div>
