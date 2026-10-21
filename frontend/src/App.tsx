@@ -273,7 +273,8 @@ function StopScreen({ reading, arrivals }: { reading: Reading; arrivals: ReturnT
               ))}
             </div>
           </section>
-          <section className="screen-energy-panel" aria-label="Sample energy consumption">
+        </div>
+        <section className="screen-energy-panel" aria-label="Sample energy consumption">
             <div className="screen-energy-heading"><span>ENERGY USE</span><span className="simulated-tag">SAMPLE</span></div>
             <div className="screen-energy-total"><strong>1.90 <small>kWh/day</small></strong><span>155 W reference rated load</span></div>
             <div className="screen-energy-loads">
@@ -283,8 +284,7 @@ function StopScreen({ reading, arrivals }: { reading: Reading; arrivals: ReturnT
               <div><span>Water pump · 0 W</span><strong>0</strong></div>
             </div>
             <small className="screen-energy-note">kWh/day · illustrative reference values. Display wattage not separately specified.</small>
-          </section>
-        </div>
+        </section>
         <div className="screen-info"><span><i className="screen-sun">☀</i> {reading.temperature_c.toFixed(1)}°C <small>Temperature</small></span><span><i className="screen-humidity">≈</i> {Math.round(reading.humidity_pct)}% <small>Humidity</small></span><span><i className="screen-crowd">♙</i> {reading.crowd_level} <small>Waiting crowd</small></span></div>
         <aside className="screen-ad" aria-label="Sample e-hailing advertisement">
           <div className="screen-ad-copy"><span className="screen-ad-label">ADVERTISEMENT · SAMPLE</span><strong>Your next ride, on demand.</strong><small>Continue your journey with an e-hailing ride.</small></div>
