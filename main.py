@@ -1,12 +1,16 @@
+import asyncio
+import json
 import os
 import sqlite3
+import threading
 from contextlib import closing
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Literal
 
-from fastapi import FastAPI, Query
+from fastapi import FastAPI, Query, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 
 DB_PATH = Path(os.environ.get("TELEMETRY_DB", "telemetry.db"))
@@ -15,9 +19,32 @@ app = FastAPI(title="Bus Stop Telemetry Demo", version="0.1.0")
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["https://qiphy.github.io"],
-    allow_methods=["GET", "OPTIONS"],
+    allow_methods=["GET", "POST", "OPTIONS"],
     allow_headers=["*"],
 )
+
+telemetry_subscribers: set[tuple[asyncio.AbstractEventLoop, asyncio.Queue[str]]] = set()
+subscriber_lock = threading.Lock()
+
+
+def publish_telemetry_update() -> None:
+    with subscriber_lock:
+        subscribers = tuple(telemetry_subscribers)
+
+    for loop, queue in subscribers:
+        def enqueue(target: asyncio.Queue[str] = queue) -> None:
+            if target.full():
+                try:
+                    target.get_nowait()
+                except asyncio.QueueEmpty:
+                    pass
+            target.put_nowait("update")
+
+        try:
+            loop.call_soon_threadsafe(enqueue)
+        except RuntimeError:
+            with subscriber_lock:
+                telemetry_subscribers.discard((loop, queue))
 
 
 class Reading(BaseModel):
@@ -132,6 +159,7 @@ def receive_telemetry(reading: Reading) -> dict[str, object]:
         connection.commit()
         reading_id = cursor.lastrowid
 
+    publish_telemetry_update()
     return {"ok": True, "id": reading_id, "device_id": payload["device_id"]}
 
 
@@ -157,6 +185,40 @@ def list_telemetry(
     for item in items:
         item["cooler_on"] = bool(item["cooler_on"])
     return {"items": items}
+
+
+@app.get("/events/telemetry")
+async def stream_telemetry(request: Request) -> StreamingResponse:
+    loop = asyncio.get_running_loop()
+    queue: asyncio.Queue[str] = asyncio.Queue(maxsize=1)
+    subscriber = (loop, queue)
+    with subscriber_lock:
+        telemetry_subscribers.add(subscriber)
+    queue.put_nowait("initial")
+
+    async def events():
+        try:
+            while not await request.is_disconnected():
+                try:
+                    await asyncio.wait_for(queue.get(), timeout=15)
+                except asyncio.TimeoutError:
+                    yield ": keep-alive\n\n"
+                    continue
+
+                snapshot = {
+                    "items": list_telemetry(limit=500, device_id=None)["items"],
+                    "passenger_counts": list_passenger_counts(camera_id=None)["items"],
+                }
+                yield f"event: telemetry\ndata: {json.dumps(snapshot)}\n\n"
+        finally:
+            with subscriber_lock:
+                telemetry_subscribers.discard(subscriber)
+
+    return StreamingResponse(
+        events(),
+        media_type="text/event-stream",
+        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+    )
 
 
 @app.post("/passenger-counts", status_code=201)
@@ -188,6 +250,7 @@ def receive_passenger_count(count: PassengerCount) -> dict[str, object]:
             ),
         )
         connection.commit()
+    publish_telemetry_update()
     return {"ok": True, "camera_id": payload["camera_id"]}
 
 

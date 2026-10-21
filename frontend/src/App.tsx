@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 
 type CrowdLevel = 'Low' | 'Moderate' | 'High' | 'Unknown'
 type Reading = {
@@ -85,43 +85,50 @@ function App() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [usingPreview, setUsingPreview] = useState(false)
-
-  const refresh = useCallback(async () => {
-    try {
-      const response = await fetch(`${API}/telemetry?limit=500`)
-      if (!response.ok) throw new Error(`API returned ${response.status}`)
-      const body = (await response.json()) as { items?: Reading[] }
-      if (!Array.isArray(body.items)) throw new Error('Unexpected telemetry response')
-      setReadings(body.items)
-      try {
-        const countResponse = await fetch(`${API}/passenger-counts`)
-        const countBody = countResponse.ok ? (await countResponse.json()) as { items?: PassengerCount[] } : null
-        setPassengerCounts(Array.isArray(countBody?.items) ? countBody.items : [])
-      } catch {
-        setPassengerCounts([])
-      }
-      setError('')
-      setUsingPreview(body.items.length === 0)
-      if (body.items.length === 0) setReadings(previewReadings)
-    } catch (cause) {
-      setReadings(previewReadings)
-      setPassengerCounts([])
-      setUsingPreview(true)
-      setError(cause instanceof Error ? cause.message : 'Could not connect to the telemetry API')
-    } finally {
-      setLoading(false)
-    }
-  }, [])
+  const [streamConnected, setStreamConnected] = useState(false)
 
   useEffect(() => {
-    void refresh()
-    const poll = window.setInterval(() => void refresh(), 5000)
+    let active = true
+    let receivedSnapshot = false
+    const stream = new EventSource(`${API}/events/telemetry`)
+    stream.addEventListener('telemetry', (event) => {
+      try {
+        const snapshot = JSON.parse((event as MessageEvent<string>).data) as { items?: Reading[]; passenger_counts?: PassengerCount[] }
+        if (!Array.isArray(snapshot.items)) throw new Error('Unexpected telemetry response')
+        receivedSnapshot = true
+        setReadings(snapshot.items.length > 0 ? snapshot.items : previewReadings)
+        setPassengerCounts(Array.isArray(snapshot.passenger_counts) ? snapshot.passenger_counts : [])
+        setUsingPreview(snapshot.items.length === 0)
+        setError('')
+        setLoading(false)
+      } catch {
+        if (active) setError('Received an invalid telemetry update')
+      }
+    })
+    stream.onopen = () => {
+      if (!active) return
+      setStreamConnected(true)
+      setError('')
+    }
+    stream.onerror = () => {
+      if (!active) return
+      setStreamConnected(false)
+      if (!receivedSnapshot) {
+        setReadings(previewReadings)
+        setPassengerCounts([])
+        setUsingPreview(true)
+        setLoading(false)
+      }
+      setError('Live telemetry stream disconnected; reconnecting…')
+    }
+
     const clock = window.setInterval(() => setNow(Date.now()), 1000)
     return () => {
-      window.clearInterval(poll)
+      active = false
+      stream.close()
       window.clearInterval(clock)
     }
-  }, [refresh])
+  }, [])
 
   const latest = useMemo(() => latestPerStop(readings), [readings])
   useEffect(() => {
@@ -153,7 +160,7 @@ function App() {
             <h1>A cooler, clearer<br className="mobile-break" /> way to wait.</h1>
             <p>Comfort conditions, bus arrivals and stop operations, all in one place.</p>
           </div>
-          <div className="updated-pill"><span className="pulse-dot" /> Updates every 5 seconds</div>
+          <div className="updated-pill"><span className={`pulse-dot ${streamConnected ? '' : 'pulse-dot-idle'}`} /> {streamConnected ? 'Live telemetry stream' : 'Connecting to live updates'}</div>
         </div>
 
         <div className={`demo-notice ${usingPreview ? 'preview-notice' : ''}`}>
@@ -267,6 +274,10 @@ function StopScreen({ reading, arrivals }: { reading: Reading; arrivals: ReturnT
           ))}
         </div>
         <div className="screen-info"><span><i className="screen-sun">☀</i> {reading.temperature_c.toFixed(1)}°C <small>Temperature</small></span><span><i className="screen-humidity">≈</i> {Math.round(reading.humidity_pct)}% <small>Humidity</small></span><span><i className="screen-crowd">♙</i> {reading.crowd_level} <small>Waiting crowd</small></span></div>
+        <aside className="screen-ad" aria-label="Sample e-hailing advertisement">
+          <div className="screen-ad-copy"><span className="screen-ad-label">ADVERTISEMENT · SAMPLE</span><strong>Your next ride, on demand.</strong><small>Continue your journey with an e-hailing ride.</small></div>
+          <span className="screen-ad-cta">BOOK A RIDE <b>↗</b></span>
+        </aside>
         <div className="screen-footer">Arrival estimates for demonstration · Not connected to live bus GPS</div>
       </div>
       <div className="screen-notes"><span className="screen-note-icon">▣</span><div><strong>Designed for a quick glance</strong><p>Upcoming services are shown together for easy comparison. This view is a screen mock-up; arrival estimates are simulated.</p></div></div>
@@ -291,7 +302,7 @@ function OperationsView({ readings, reading, arrivals }: { readings: Reading[]; 
         <article className="ops-panel"><div className="panel-heading"><div><span className="card-kicker">SERVICE ESTIMATE</span><h3>Upcoming arrivals</h3></div><span className="simulated-tag">SIMULATED</span></div>{arrivals.slice(0, 3).map((bus) => <div className="service-row" key={`${bus.route}-${bus.eta}`}><span className="route-chip small">{bus.route}</span><span className="service-destination">{bus.destination}</span><strong>{formatEta(bus.eta)}</strong></div>)}<p className="panel-footnote">Headway-based demo values. Connect an authorized transit feed for live ETAs.</p></article>
         <article className="ops-panel"><div className="panel-heading"><div><span className="card-kicker">DEVICE HEALTH</span><h3>{reading.device_id}</h3></div><span className="device-dot"><i /> Online</span></div><div className="health-row"><span>Waiting-area crowd</span><strong>{reading.crowd_level}</strong></div><div className="health-row"><span>Crowd data source</span><strong>{reading.crowd_source}</strong></div><div className="health-row"><span>Last sensor update</span><strong>{formatTimestamp(reading.timestamp)}</strong></div><div className="health-row"><span>Cooler state</span><strong>{reading.cooler_on ? 'On' : 'Off'}</strong></div></article>
       </div>
-      <div className="site-summary"><div><strong>{readings.length}</strong><span>stops reporting</span></div><div><strong>{readings.filter((item) => item.cooler_on).length}</strong><span>coolers running</span></div><div><strong>{readings.filter((item) => Boolean(item.fault_code)).length}</strong><span>faults reported</span></div><small>Telemetry refreshes every 5 seconds · Demonstration values only</small></div>
+      <div className="site-summary"><div><strong>{readings.length}</strong><span>stops reporting</span></div><div><strong>{readings.filter((item) => item.cooler_on).length}</strong><span>coolers running</span></div><div><strong>{readings.filter((item) => Boolean(item.fault_code)).length}</strong><span>faults reported</span></div><small>Live server-pushed telemetry · Demonstration values only</small></div>
     </section>
   )
 }
@@ -304,14 +315,23 @@ function SolarGeneration() {
   return (
     <section className="solar-panel" aria-labelledby="solar-title">
       <div className="solar-heading">
-        <div><span className="card-kicker">SOLAR ENERGY</span><h2 id="solar-title">Panel generation</h2></div>
-        <span className="simulated-tag">SAMPLE DATA</span>
+        <div><span className="card-kicker">SOLAR ENERGY · REFERENCE VALUES</span><h2 id="solar-title">Generation &amp; energy use</h2></div>
+        <span className="simulated-tag">ILLUSTRATIVE ONLY</span>
       </div>
       <div className="solar-metrics">
-        <div><span>Generated today</span><strong>2.4 <small>kWh</small></strong></div>
-        <div><span>Current output</span><strong>185 <small>W</small></strong></div>
+        <div><span>Solar generation reading</span><strong className="solar-pending">Awaiting panel specs</strong></div>
+        <div><span>Reference total rated load</span><strong>155 <small>W</small></strong></div>
+        <div><span>Reference energy use</span><strong>1.90 <small>kWh/day</small></strong></div>
       </div>
-      <p>Illustrative placeholders only—not measured data or estimates based on panel dimensions. Engineering specifications are pending.</p>
+      <div className="energy-breakdown" aria-label="Illustrative reference energy consumption breakdown">
+        <div className="energy-breakdown-heading"><strong>Reference load and daily consumption</strong><span>Assumptions from supplied reference</span></div>
+        <div className="energy-row"><span><strong>Centrifugal fan</strong><small>120 W · 12 h/day</small></span><b>1.44 kWh/day</b></div>
+        <div className="energy-row"><span><strong>LED lighting</strong><small>20 W · 14 h/day</small></span><b>0.28 kWh/day</b></div>
+        <div className="energy-row"><span><strong>Controls + sensors</strong><small>15 W · 12 h/day</small></span><b>0.18 kWh/day</b></div>
+        <div className="energy-row"><span><strong>Water pump</strong><small>0 W · gravity-fed</small></span><b>0 kWh/day</b></div>
+      </div>
+      <div className="energy-reference-summary"><span>57 kWh/month</span><span>694 kWh/year</span><span>RM 315/year at RM 0.454/kWh</span><span>526 kgCO₂e/year reference emissions</span></div>
+      <p>These are illustrative figures from the supplied reference, not site measurements. Daily use assumes fan 12 h, lights 14 h, and controls/sensors 12 h. No separate display wattage is provided—15 W is for controls + sensors, not a confirmed display rating. Solar generation, output, and panel sizing are not available until engineering specifications are provided.</p>
     </section>
   )
 }

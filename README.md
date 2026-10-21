@@ -54,7 +54,7 @@ npm install
 npm run dev
 ```
 
-Open the local URL printed by Vite, usually <http://127.0.0.1:5173>. The Vite development server proxies `/api/*` requests to the FastAPI server at `127.0.0.1:8000`, so no separate CORS configuration is needed for local development. The React page refreshes telemetry every five seconds and has three views: passenger app, bus-stop screen, and operations dashboard.
+Open the local URL printed by Vite, usually <http://127.0.0.1:5173>. The Vite development server proxies `/api/*` requests to the FastAPI server at `127.0.0.1:8000`, so no separate CORS configuration is needed for local development. The React page receives telemetry over a live event stream and has three views: passenger app, bus-stop screen, and operations dashboard.
 
 If FastAPI or the simulator is unavailable, the frontend shows clearly labelled preview values; it does not mistake these for real sensor data.
 
@@ -69,13 +69,19 @@ npm run preview
 
 The development proxy only applies to `npm run dev`. Production builds read `VITE_API_URL` from `frontend/.env.production`, currently set to `https://stopsense.onrender.com`; changing it requires rebuilding and redeploying the static site. The FastAPI app allows browser requests from `https://qiphy.github.io` for its read-only API endpoints. Deploy the updated backend as well as the frontend so the CORS configuration takes effect.
 
-### Solar generation preview
+### Solar generation and reference energy use
 
-The dashboard includes a solar-energy display with fixed example values (2.4 kWh generated today and 185 W current output). These are **sample placeholders only**: they are not measurements, forecasts, or estimates based on panel dimensions. Engineering specifications are pending; replace the placeholders with verified telemetry once the panel design and measurement source are available.
+The dashboard shows illustrative reference load values from the supplied system reference: a 120 W centrifugal fan (assumed 12 h/day), 20 W LED lighting (14 h/day), and 15 W controls + sensors (12 h/day), for a 155 W total rated load and 1.90 kWh/day example consumption. The reference also lists a 0 W gravity-fed pump, 57 kWh/month, 694 kWh/year, RM 315/year at RM 0.454/kWh, and 526 kgCO₂e/year. These are reference assumptions, not site measurements or verified equipment performance.
+
+The reference does **not** provide a separate display wattage: 15 W is labelled “Controls + Sensors” and must not be treated as a confirmed display rating. Solar generation/output is intentionally shown as awaiting panel specifications. Do not infer generation, system sizing, or dimension-based estimates until engineering provides panel specifications and a measurement source.
+
+### Live dashboard updates
+
+The frontend opens a Server-Sent Events connection to `GET /events/telemetry`. The API sends an initial telemetry/passenger-count snapshot and pushes a refreshed snapshot when either ingestion endpoint receives data. EventSource reconnects automatically; bus arrival countdowns continue to update locally each second. The development proxy forwards `/api/events/telemetry` to FastAPI. For a hosted split frontend/backend, set `VITE_API_URL` to the backend base URL and allow the frontend origin in the API CORS configuration.
 
 ### Simulated bus arrivals
 
-ETAs are generated in the frontend from example route headways, not live bus GPS. They are labelled simulated in all views. For real arrivals, connect an authorized transit API or GTFS-Realtime feed and report its source and update time. Crowd level means people waiting at the stop, **not occupancy onboard a bus**.
+ETAs are generated in the frontend from example route headways, not live bus GPS. They are labelled simulated in all views. The bus-stop screen also includes a clearly marked sample e-hailing advertisement placeholder; its call to action is illustrative only. For real arrivals, connect an authorized transit API or GTFS-Realtime feed and report its source and update time. Crowd level means people waiting at the stop, **not occupancy onboard a bus**.
 
 ## Shared ESP32/FastAPI payload
 
@@ -106,8 +112,8 @@ For real deployment, only report a stop crowd level from a verified source (for 
 track once when it crosses the configured doorway line. Frames stay in process
 memory: the script does not save or transmit footage, and it uses no facial
 recognition. These counts are a separate metric from `crowd_level`, which still
-means people waiting at the bus stop. The React UI shows each camera's boarding
-and alighting totals, status, confidence, and update time in all three views.
+means people waiting at the bus stop. The React Operations view shows each
+camera's boarding and alighting totals, status, confidence, and update time.
 
 The API accepts this aggregate payload at `POST /passenger-counts` and keeps the
 latest report per camera in a dedicated SQLite table; it does not alter the

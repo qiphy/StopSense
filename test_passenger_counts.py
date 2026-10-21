@@ -1,8 +1,10 @@
+import asyncio
+import json
 import tempfile
 import unittest
 from datetime import datetime
 from pathlib import Path
-from unittest.mock import patch
+from unittest.mock import AsyncMock, patch
 
 from pydantic import ValidationError
 
@@ -42,6 +44,36 @@ class PassengerCountApiTests(unittest.TestCase):
         self.assertNotIn("crowd_level", listing[0])
         routes = [route for route in main.app.routes if route.path == "/passenger-counts"]
         self.assertEqual({method for route in routes for method in route.methods}, {"GET", "POST"})
+
+    def test_sse_stream_sends_initial_snapshot_and_pushes_new_telemetry(self):
+        async def read_stream_events():
+            request = type("RequestStub", (), {"is_disconnected": AsyncMock(return_value=False)})()
+            response = await main.stream_telemetry(request)
+            iterator = response.body_iterator
+            initial_event = await anext(iterator)
+            main.receive_telemetry(
+                main.Reading(
+                    device_id="streamed-stop",
+                    timestamp=datetime.fromisoformat("2026-10-21T00:00:00+00:00"),
+                    temperature_c=31.2,
+                    humidity_pct=72,
+                    water_level_pct=85,
+                    power_w=14.6,
+                    cooler_on=True,
+                )
+            )
+            await asyncio.sleep(0)
+            update_event = await anext(iterator)
+            await iterator.aclose()
+            return initial_event, update_event
+
+        initial_event, update_event = asyncio.run(read_stream_events())
+        self.assertTrue(initial_event.startswith("event: telemetry"))
+        initial = json.loads(initial_event.split("data: ", 1)[1].strip())
+        self.assertEqual(initial, {"items": [], "passenger_counts": []})
+        updated = json.loads(update_event.split("data: ", 1)[1].strip())
+        self.assertEqual(updated["items"][0]["device_id"], "streamed-stop")
+        self.assertFalse(main.telemetry_subscribers)
 
     def test_invalid_counts_and_confidence_are_rejected(self):
         with self.assertRaises(ValidationError):
