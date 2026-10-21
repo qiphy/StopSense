@@ -6,11 +6,18 @@ from pathlib import Path
 from typing import Literal
 
 from fastapi import FastAPI, Query
+from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
 DB_PATH = Path(os.environ.get("TELEMETRY_DB", "telemetry.db"))
 
 app = FastAPI(title="Bus Stop Telemetry Demo", version="0.1.0")
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["https://qiphy.github.io"],
+    allow_methods=["GET", "OPTIONS"],
+    allow_headers=["*"],
+)
 
 
 class Reading(BaseModel):

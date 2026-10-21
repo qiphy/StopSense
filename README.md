@@ -1,4 +1,4 @@
-# StopSense bus-stop telemetry prototype
+# CoolStop bus-stop telemetry prototype
 
 A local prototype with a **React + TypeScript frontend**, FastAPI telemetry API, SQLite storage, and a simulated device:
 
@@ -67,7 +67,11 @@ npm run build
 npm run preview
 ```
 
-The development proxy only applies to `npm run dev`. For production, serve the static `frontend/dist` files behind a web server/reverse proxy that forwards `/api` to FastAPI, or configure the API endpoint for your hosting environment.
+The development proxy only applies to `npm run dev`. Production builds read `VITE_API_URL` from `frontend/.env.production`, currently set to `https://stopsense.onrender.com`; changing it requires rebuilding and redeploying the static site. The FastAPI app allows browser requests from `https://qiphy.github.io` for its read-only API endpoints. Deploy the updated backend as well as the frontend so the CORS configuration takes effect.
+
+### Solar generation preview
+
+The dashboard includes a solar-energy display with fixed example values (2.4 kWh generated today and 185 W current output). These are **sample placeholders only**: they are not measurements, forecasts, or estimates based on panel dimensions. Engineering specifications are pending; replace the placeholders with verified telemetry once the panel design and measurement source are available.
 
 ### Simulated bus arrivals
 
