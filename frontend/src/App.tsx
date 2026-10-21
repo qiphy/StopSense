@@ -253,17 +253,24 @@ function PassengerFlow({ reports }: { reports: PassengerCount[] }) {
 }
 
 function StopScreen({ reading, arrivals }: { reading: Reading; arrivals: ReturnType<typeof getArrivals> }) {
-  const first = arrivals[0]
   return (
     <section className="screen-wrap">
       <div className="screen-device">
         <div className="screen-header"><span className="screen-logo">C</span><span>StopSense <small>SMART BUS STOP</small></span><span className="screen-clock">{new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span></div>
-        <div className="screen-next-label">NEXT BUS <span className="simulated-tag">SIMULATED</span></div>
-        <div className="screen-hero"><span className="screen-route">{first.route}</span><div><div className="screen-destination">{first.destination}</div><div className="screen-eta">{formatEta(first.eta)}</div></div><span className="screen-arrow">›</span></div>
+        <div className="screen-next-label">UPCOMING BUSES <span className="simulated-tag">SIMULATED</span></div>
+        <div className="screen-arrivals" aria-label="Upcoming bus arrivals">
+          {arrivals.slice(0, 6).map((bus, index) => (
+            <div className="screen-arrival-row" key={`${bus.route}-${index}`}>
+              <span className="screen-route small">{bus.route}</span>
+              <span className="screen-arrival-destination">{bus.destination}</span>
+              <strong>{formatEta(bus.eta)}</strong>
+            </div>
+          ))}
+        </div>
         <div className="screen-info"><span><i className="screen-sun">☀</i> {reading.temperature_c.toFixed(1)}°C <small>Temperature</small></span><span><i className="screen-humidity">≈</i> {Math.round(reading.humidity_pct)}% <small>Humidity</small></span><span><i className="screen-crowd">♙</i> {reading.crowd_level} <small>Waiting crowd</small></span></div>
-        <div className="screen-footer">Arrivals are estimated for demonstration · Not connected to live bus GPS</div>
+        <div className="screen-footer">Arrival estimates for demonstration · Not connected to live bus GPS</div>
       </div>
-      <div className="screen-notes"><span className="screen-note-icon">▣</span><div><strong>Designed for a quick glance</strong><p>Large arrival countdown, readable conditions and no app required. This view is a screen mock-up; arrival estimates are simulated.</p></div></div>
+      <div className="screen-notes"><span className="screen-note-icon">▣</span><div><strong>Designed for a quick glance</strong><p>Upcoming services are shown together for easy comparison. This view is a screen mock-up; arrival estimates are simulated.</p></div></div>
     </section>
   )
 }
