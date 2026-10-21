@@ -132,7 +132,7 @@ def render_views() -> None:
         escaped_stop = html.escape(str(screen_stop))
         top_arrival = simulated_arrivals(screen_stop)[0]
         st.markdown(
-            f"""<div style="background:#102a43;color:white;padding:28px;border-radius:16px;">
+            f"""<div style="background:#102a43;color:white;padding:28px;border-radius:18px;">
             <div style="font-size:22px;opacity:.85;">NEXT BUS · {html.escape(str(top_arrival['route']))}</div>
             <div style="font-size:58px;font-weight:700;line-height:1.2;">
             {html.escape(format_eta(int(top_arrival['eta_seconds'])))}</div>
