@@ -53,11 +53,8 @@ function getArrivals(stopId: string, now: number) {
 }
 
 function formatEta(seconds: number) {
-  if (seconds <= 10) return 'Due'
-  if (seconds < 60) return `${seconds} sec`
-  const minutes = Math.floor(seconds / 60)
-  const remaining = seconds % 60
-  return remaining < 10 ? `${minutes} min` : `${minutes} min ${remaining} sec`
+  if (seconds < 60) return '<1min'
+  return `${Math.ceil(seconds / 60)} min`
 }
 
 function formatTimestamp(timestamp: string) {
