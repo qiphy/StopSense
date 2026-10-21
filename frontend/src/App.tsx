@@ -222,7 +222,7 @@ function EhailAlternative({ stopId }: { stopId: string }) {
   return (
     <aside className="ehail-alternative" aria-label="Sample e-hailing alternative">
       <div className="ehail-copy"><span className="simulated-tag">SAMPLE ALTERNATIVE</span><strong>Busy at {stopId}?</strong><span>Compare an e-hailing ride instead of waiting in the crowd.</span></div>
-      <div className="ehail-estimate"><strong>5 min</strong><span>sample pickup</span><strong>RM 8–12</strong><span>illustrative fare</span></div>
+      <div className="ehail-estimate"><strong>5 min</strong><strong>RM 8–12</strong></div>
       <span className="ehail-cta">VIEW SAMPLE RIDE ↗</span>
       <small>Demo only · ETA and fare are not live quotes. No booking will be made.</small>
     </aside>
