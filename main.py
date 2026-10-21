@@ -26,6 +26,15 @@ class Reading(BaseModel):
     fault_code: str | None = Field(default=None, max_length=64)
 
 
+class PassengerCount(BaseModel):
+    camera_id: str = Field(min_length=1, max_length=64)
+    observed_at: datetime
+    boarding_count: int = Field(ge=0)
+    alighting_count: int = Field(ge=0)
+    confidence: float = Field(ge=0, le=1)
+    status: Literal["ok", "degraded", "offline", "error"]
+
+
 def connect_db() -> sqlite3.Connection:
     DB_PATH.parent.mkdir(parents=True, exist_ok=True)
     connection = sqlite3.connect(DB_PATH)
@@ -64,6 +73,16 @@ def initialize_db() -> None:
         connection.execute(
             "CREATE INDEX IF NOT EXISTS idx_telemetry_device_time "
             "ON telemetry(device_id, timestamp DESC)"
+        )
+        connection.execute(
+            """CREATE TABLE IF NOT EXISTS passenger_counts (
+                camera_id TEXT PRIMARY KEY,
+                observed_at TEXT NOT NULL,
+                boarding_count INTEGER NOT NULL CHECK (boarding_count >= 0),
+                alighting_count INTEGER NOT NULL CHECK (alighting_count >= 0),
+                confidence REAL NOT NULL CHECK (confidence >= 0 AND confidence <= 1),
+                status TEXT NOT NULL CHECK (status IN ('ok', 'degraded', 'offline', 'error'))
+            )"""
         )
         connection.commit()
 
@@ -131,3 +150,51 @@ def list_telemetry(
     for item in items:
         item["cooler_on"] = bool(item["cooler_on"])
     return {"items": items}
+
+
+@app.post("/passenger-counts", status_code=201)
+def receive_passenger_count(count: PassengerCount) -> dict[str, object]:
+    observed_at = count.observed_at
+    if observed_at.tzinfo is None:
+        observed_at = observed_at.replace(tzinfo=timezone.utc)
+    payload = count.model_dump()
+    payload["observed_at"] = observed_at.astimezone(timezone.utc).isoformat()
+
+    with closing(connect_db()) as connection:
+        connection.execute(
+            """INSERT INTO passenger_counts (
+                   camera_id, observed_at, boarding_count, alighting_count, confidence, status
+               ) VALUES (?, ?, ?, ?, ?, ?)
+               ON CONFLICT(camera_id) DO UPDATE SET
+                   observed_at = excluded.observed_at,
+                   boarding_count = excluded.boarding_count,
+                   alighting_count = excluded.alighting_count,
+                   confidence = excluded.confidence,
+                   status = excluded.status""",
+            (
+                payload["camera_id"],
+                payload["observed_at"],
+                payload["boarding_count"],
+                payload["alighting_count"],
+                payload["confidence"],
+                payload["status"],
+            ),
+        )
+        connection.commit()
+    return {"ok": True, "camera_id": payload["camera_id"]}
+
+
+@app.get("/passenger-counts")
+def list_passenger_counts(
+    camera_id: str | None = Query(default=None, max_length=64),
+) -> dict[str, list[dict[str, object]]]:
+    sql = """SELECT camera_id, observed_at, boarding_count, alighting_count, confidence, status
+             FROM passenger_counts"""
+    params: list[object] = []
+    if camera_id:
+        sql += " WHERE camera_id = ?"
+        params.append(camera_id)
+    sql += " ORDER BY camera_id"
+    with closing(connect_db()) as connection:
+        rows = connection.execute(sql, params).fetchall()
+    return {"items": [dict(row) for row in rows]}

@@ -1,21 +1,22 @@
-# Bus-stop telemetry dashboard prototype
+# StopSense bus-stop telemetry prototype
 
-A local prototype for testing the data flow before connecting a real ESP32:
+A local prototype with a **React + TypeScript frontend**, FastAPI telemetry API, SQLite storage, and a simulated device:
 
 ```text
-Python simulator → FastAPI /telemetry → SQLite → Streamlit dashboard
+Python simulator → FastAPI /telemetry → SQLite → React + TypeScript (Vite)
 ```
 
-**All readings are synthetic.** This demo does not connect to an ESP32, a real cooling unit, a mobile network, or a cloud service. The API has no authentication and is intended for local demonstration only; do not expose it to the public internet.
+All device readings and bus arrivals are synthetic unless you connect an approved real data source. The API has no authentication and is intended for local demonstration only; do not expose it to the public internet.
 
 ## Requirements
 
 - Python 3.10 or later
-- Internet access for the initial Python package installation
+- Node.js 20.19+ or 22.12+ and npm
+- Internet access for initial package installation
 
-## Install
+## Install the backend
 
-From this directory, create and activate a virtual environment, then install requirements:
+From this directory, create and activate a Python virtual environment, then install the backend requirements:
 
 ```bash
 python3 -m venv .venv
@@ -25,41 +26,52 @@ python -m pip install -r requirements.txt
 
 On Windows PowerShell, activate with `.venv\Scripts\Activate.ps1`.
 
-## Run the demo
+## Run the complete demo
 
-Open three terminals in this directory and activate the same virtual environment in each.
+Open **three terminals**. Keep each process running while you use the frontend.
 
-**Terminal 1 — API and local SQLite storage:**
+**Terminal 1 — FastAPI and SQLite backend** (from this directory, with the Python environment activated):
 
 ```bash
 uvicorn main:app --host 127.0.0.1 --port 8000 --reload
 ```
 
-Check the API at <http://127.0.0.1:8000/health>. Interactive request documentation is at <http://127.0.0.1:8000/docs>.
+Verify at <http://127.0.0.1:8000/health>. API documentation: <http://127.0.0.1:8000/docs>.
 
-**Terminal 2 — simulated bus-stop device:**
+**Terminal 2 — simulated bus-stop device** (from this directory, with the same Python environment):
 
 ```bash
 python simulator.py
 ```
 
-It posts an ESP32-shaped JSON reading every five seconds. Configure it with `DEVICE_ID`, `TELEMETRY_URL`, or `SEND_INTERVAL_SECONDS` environment variables if needed.
+It posts sensor readings every five seconds. Configure `DEVICE_ID`, `TELEMETRY_URL`, and `SEND_INTERVAL_SECONDS` environment variables if needed.
 
-**Terminal 3 — dashboard:**
+**Terminal 3 — React + TypeScript frontend:**
 
 ```bash
-streamlit run dashboard.py
+cd frontend
+npm install
+npm run dev
 ```
 
-Open the `Local URL` printed by Streamlit (usually <http://localhost:8501>). The three view tabs appear even if the API is not running: in that case the page shows clearly labelled local preview values so you can inspect the UI. Start the API and simulator below to replace the preview with incoming telemetry.
+Open the local URL printed by Vite, usually <http://127.0.0.1:5173>. The Vite development server proxies `/api/*` requests to the FastAPI server at `127.0.0.1:8000`, so no separate CORS configuration is needed for local development. The React page refreshes telemetry every five seconds and has three views: passenger app, bus-stop screen, and operations dashboard.
 
-The dashboard refreshes every five seconds and provides three views backed by the same stop telemetry:
+If FastAPI or the simulator is unavailable, the frontend shows clearly labelled preview values; it does not mistake these for real sensor data.
 
-- **Passenger app:** stop temperature, humidity, waiting-area crowd level, and next-bus countdowns.
-- **Bus-stop screen:** a high-contrast, glanceable display with the next bus, crowd level, temperature, and humidity.
-- **Operations dashboard:** cooler state, water and power readings, faults, sensor history, and arrivals.
+### Frontend production build
 
-Bus arrivals are simulated using simple route headways and are prominently labelled as estimates. They are not connected to bus GPS or a transit operator feed. For real arrivals, integrate an authorized operator API or GTFS-Realtime feed and show its source and update time. Stop crowd describes people waiting, **not occupancy onboard a bus**. All simulator values are synthetic.
+From `frontend/`:
+
+```bash
+npm run build
+npm run preview
+```
+
+The development proxy only applies to `npm run dev`. For production, serve the static `frontend/dist` files behind a web server/reverse proxy that forwards `/api` to FastAPI, or configure the API endpoint for your hosting environment.
+
+### Simulated bus arrivals
+
+ETAs are generated in the frontend from example route headways, not live bus GPS. They are labelled simulated in all views. For real arrivals, connect an authorized transit API or GTFS-Realtime feed and report its source and update time. Crowd level means people waiting at the stop, **not occupancy onboard a bus**.
 
 ## Shared ESP32/FastAPI payload
 
@@ -84,25 +96,71 @@ The API validates values and returns HTTP `201` for accepted data or `422` for i
 
 For real deployment, only report a stop crowd level from a verified source (for example manual observation or an approved people-counting sensor), with a timestamp and source label. GPS on buses does not provide occupancy. Onboard bus crowding would need RapidKL passenger-count data or an approved onboard counting system; this demo does not estimate it.
 
-### Experimental doorway in/out counter
+### Doorway passenger counter (boarding/alighting)
 
-`bus_counter.py` is a separate computer-vision experiment. It detects and tracks people locally, then counts each track once when it crosses a virtual line. It does not save or transmit video, and it does not yet send counts to the FastAPI service. Use a doorway camera view where people cross the line in a consistent direction; test and confirm the IN/OUT directions before relying on results. This is an estimate, not certified passenger-counting equipment.
+`bus_counter.py` detects and tracks people on the local machine and counts a
+track once when it crosses the configured doorway line. Frames stay in process
+memory: the script does not save or transmit footage, and it uses no facial
+recognition. These counts are a separate metric from `crowd_level`, which still
+means people waiting at the bus stop. The React UI shows each camera's boarding
+and alighting totals, status, confidence, and update time in all three views.
 
-Install its optional packages (YOLO downloads model weights on first run unless you supply a local model):
+The API accepts this aggregate payload at `POST /passenger-counts` and keeps the
+latest report per camera in a dedicated SQLite table; it does not alter the
+existing `/telemetry` schema. Retrieve reports with `GET /passenger-counts` or
+filter with `GET /passenger-counts?camera_id=bus-door-01`:
+
+```json
+{
+  "camera_id": "bus-door-01",
+  "observed_at": "2026-10-21T00:00:00+00:00",
+  "boarding_count": 3,
+  "alighting_count": 1,
+  "confidence": 0.82,
+  "status": "ok"
+}
+```
+
+Install optional camera dependencies (the default YOLO model weights download
+on first run; pass a local model path to avoid that):
 
 ```bash
 python -m pip install opencv-python ultralytics
 ```
 
-Run from this directory with the default webcam:
+Run after starting FastAPI, using the default webcam:
 
 ```bash
-python bus_counter.py --source 0 --axis y --line 0.55 --in-direction down
+python bus_counter.py --source 0 --camera-id bus-door-01 --axis y --line 0.55 --in-direction down
 ```
 
-Use `--source path/to/video.mp4` for a recorded test or `--source URL` for a camera stream. For a side-on view, use `--axis x --in-direction right`; switch `right`/`down` to `left`/`up` if your camera orientation is reversed. Adjust `--line` to place the drawn line across the doorway. Press `q` to stop, or pass `--no-display` to run headlessly. Only use camera footage with operator approval, appropriate notices/consent, and a privacy review; do not use facial recognition, and avoid retaining identifiable footage.
+Use `--source path/to/video.mp4` for a recorded test or `--source URL` for a
+camera stream. For a side-on view, use `--axis x --in-direction right`; switch
+`right`/`down` to `left`/`up` if your camera orientation is reversed. Adjust
+`--line` to position the virtual line. Configure the detector with `--model`
+and `--confidence`, and tracking with `--tracker`; set `--hysteresis` to add a
+dead-band against line jitter. `--api-url ""` disables publishing, and
+`--no-display` runs headlessly. `PASSENGER_COUNT_API_URL`, `PASSENGER_CAMERA_ID`,
+and `PASSENGER_MODEL` can also configure these values. The API replaces each
+camera's latest aggregate, while the camera's totals are cumulative for that
+counter process. Status changes to offline at stream end and the UI marks an
+otherwise-ok report stale after 30 seconds. Confidence is the mean model score
+for counted crossings, not calibrated counting accuracy.
 
-By default, the SQLite file is `telemetry.db` in the current directory. Set `TELEMETRY_DB` to change its path. The dashboard can read another API address via `TELEMETRY_API`.
+Validate the line counter without a camera or optional CV packages:
+
+```bash
+python bus_counter.py --self-test
+python -m unittest test_passenger_counts.py
+```
+
+This is a prototype, not certified passenger-counting equipment. Validate and
+tune the model, line, direction, and tracking on the actual camera angle;
+occlusion, dense crowds, and track swaps can cause errors. Only use camera
+footage with operator approval, appropriate notices/consent, and a privacy
+review; do not use facial recognition or retain identifiable footage.
+
+By default, the SQLite file is `telemetry.db` in the current directory. Set `TELEMETRY_DB` to change its path.
 
 ## Moving from simulation to ESP32
 
