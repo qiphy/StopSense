@@ -162,7 +162,7 @@ function App() {
 
         <div className={`demo-notice ${usingPreview ? 'preview-notice' : ''}`}>
           <span className="notice-icon">{usingPreview ? '◷' : 'i'}</span>
-          <span><strong>{usingPreview ? 'PREVIEW DATA' : 'DEMO MODE'}</strong> — stop readings are {usingPreview ? 'example values shown because the API has no data' : 'simulated by the software device simulator'}. Bus arrival times are generated from a sample timetable, not live GPS.{error && <small className="notice-error">API connection: {error}. Start FastAPI and simulator.py to load readings.</small>}</span>
+          <span><strong>{usingPreview ? 'PREVIEW DATA' : 'DEMO MODE'}</strong> {error && <small className="notice-error">API connection: {error}. Start FastAPI and simulator.py to load readings.</small>}</span>
         </div>
 
         <nav className="view-switcher" aria-label="Choose dashboard view">
