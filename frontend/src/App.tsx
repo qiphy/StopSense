@@ -264,20 +264,35 @@ function StopScreen({ reading, arrivals }: { reading: Reading; arrivals: ReturnT
     <section className="screen-wrap">
       <div className="screen-device">
         <div className="screen-header"><span className="screen-logo">C</span><span>StopSense <small>SMART BUS STOP</small></span><span className="screen-clock">{new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span></div>
-        <div className="screen-next-label">UPCOMING BUSES <span className="simulated-tag">SIMULATED</span></div>
-        <div className="screen-arrivals" aria-label="Upcoming bus arrivals">
-          {arrivals.slice(0, 6).map((bus, index) => (
-            <article className="screen-arrival-card" key={`${bus.route}-${index}`}>
-              <div className="screen-arrival-card-top"><span className="screen-route small">{bus.route}</span><strong>{formatEta(bus.eta)}</strong></div>
-              <span className="screen-arrival-destination">{bus.destination}</span>
-            </article>
-          ))}
+        <div className="screen-content-grid">
+          <section className="screen-arrivals-panel" aria-label="Upcoming bus arrivals">
+            <div className="screen-next-label">UPCOMING BUSES <span className="simulated-tag">SIMULATED</span></div>
+            <div className="screen-arrivals">
+              {arrivals.slice(0, 6).map((bus, index) => (
+                <article className="screen-arrival-card" key={`${bus.route}-${index}`}>
+                  <div className="screen-arrival-card-top"><span className="screen-route small">{bus.route}</span><strong>{formatEta(bus.eta)}</strong></div>
+                  <span className="screen-arrival-destination">{bus.destination}</span>
+                </article>
+              ))}
+            </div>
+          </section>
+          <section className="screen-energy-panel" aria-label="Sample energy consumption">
+            <div className="screen-energy-heading"><span>ENERGY USE</span><span className="simulated-tag">SAMPLE</span></div>
+            <div className="screen-energy-total"><strong>1.90 <small>kWh/day</small></strong><span>155 W reference rated load</span></div>
+            <div className="screen-energy-loads">
+              <div><span>Fan · 120 W</span><strong>1.44</strong></div>
+              <div><span>LED lighting · 20 W</span><strong>0.28</strong></div>
+              <div><span>Controls + sensors · 15 W</span><strong>0.18</strong></div>
+              <div><span>Water pump · 0 W</span><strong>0</strong></div>
+            </div>
+            <small className="screen-energy-note">kWh/day · illustrative reference values. Display wattage not separately specified.</small>
+          </section>
         </div>
-        <div className="screen-info"><span><i className="screen-sun">☀</i> {reading.temperature_c.toFixed(1)}°C <small>Temperature</small></span><span><i className="screen-humidity">≈</i> {Math.round(reading.humidity_pct)}% <small>Humidity</small></span><span><i className="screen-crowd">♙</i> {reading.crowd_level} <small>Waiting crowd</small></span></div>
         <aside className="screen-ad" aria-label="Sample e-hailing advertisement">
           <div className="screen-ad-copy"><span className="screen-ad-label">ADVERTISEMENT · SAMPLE</span><strong>Your next ride, on demand.</strong><small>Continue your journey with an e-hailing ride.</small></div>
           <span className="screen-ad-cta">BOOK A RIDE <b>↗</b></span>
         </aside>
+        <div className="screen-info"><span><i className="screen-sun">☀</i> {reading.temperature_c.toFixed(1)}°C <small>Temperature</small></span><span><i className="screen-humidity">≈</i> {Math.round(reading.humidity_pct)}% <small>Humidity</small></span><span><i className="screen-crowd">♙</i> {reading.crowd_level} <small>Waiting crowd</small></span></div>
         <div className="screen-footer">Arrival estimates for demonstration · Not connected to live bus GPS</div>
       </div>
       <div className="screen-notes"><span className="screen-note-icon">▣</span><div><strong>Designed for a quick glance</strong><p>Upcoming services are shown together for easy comparison. This view is a screen mock-up; arrival estimates are simulated.</p></div></div>
