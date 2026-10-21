@@ -138,7 +138,7 @@ function App() {
       <header className="topbar">
         <a className="brand" href="#home" aria-label="StopSense home">
           <span className="brand-mark">C</span>
-          <span>stopsense<span className="brand-dot">.</span><small>Township transit, made better</small></span>
+          <span>StopSense<span className="brand-dot">.</span><small>Township transit, made better</small></span>
         </a>
         <div className="topbar-right">
           <span className={`connection ${error ? 'connection-offline' : ''}`}><i />{error ? 'Preview mode' : 'Demo system'}</span>
@@ -256,7 +256,7 @@ function StopScreen({ reading, arrivals }: { reading: Reading; arrivals: ReturnT
   return (
     <section className="screen-wrap">
       <div className="screen-device">
-        <div className="screen-header"><span className="screen-logo">C</span><span>STOPSENSE <small>SMART BUS STOP</small></span><span className="screen-clock">{new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span></div>
+        <div className="screen-header"><span className="screen-logo">C</span><span>StopSense <small>SMART BUS STOP</small></span><span className="screen-clock">{new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span></div>
         <div className="screen-next-label">UPCOMING BUSES <span className="simulated-tag">SIMULATED</span></div>
         <div className="screen-arrivals" aria-label="Upcoming bus arrivals">
           {arrivals.slice(0, 6).map((bus, index) => (
