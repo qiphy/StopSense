@@ -81,7 +81,7 @@ The frontend opens a Server-Sent Events connection to `GET /events/telemetry`. T
 
 ### Simulated bus arrivals
 
-ETAs are generated in the frontend from example route headways, not live bus GPS. They are labelled simulated in all views. The bus-stop screen also includes a clearly marked sample e-hailing advertisement placeholder; its call to action is illustrative only. For real arrivals, connect an authorized transit API or GTFS-Realtime feed and report its source and update time. Crowd level means people waiting at the stop, **not occupancy onboard a bus**.
+ETAs are generated in the frontend from example route headways, not live bus GPS. They are labelled simulated in all views. The bus-stop screen also includes a clearly marked sample e-hailing advertisement placeholder; its call to action is illustrative only. In the passenger app, a high crowd reading on the selected stop reveals a sample e-hailing alternative with illustrative pickup and fare values; it does not make a booking or fetch a live quote. For real arrivals, connect an authorized transit API or GTFS-Realtime feed and report its source and update time. Crowd level means people waiting at the stop, **not occupancy onboard a bus**.
 
 ## Shared ESP32/FastAPI payload
 
@@ -113,7 +113,7 @@ track once when it crosses the configured doorway line. Frames stay in process
 memory: the script does not save or transmit footage, and it uses no facial
 recognition. These counts are a separate metric from `crowd_level`, which still
 means people waiting at the bus stop. The React Operations view shows each
-camera's boarding and alighting totals, status, confidence, and update time.
+camera's boarding and alighting totals, status, confidence, and update time. The Operations view also shows a synthetic animated bus-door scene for demonstration; it is not recorded footage and its illustrated counts are not live camera measurements. Real camera-count reports remain separate and appear in the report cards below it.
 
 The API accepts this aggregate payload at `POST /passenger-counts` and keeps the
 latest report per camera in a dedicated SQLite table; it does not alter the

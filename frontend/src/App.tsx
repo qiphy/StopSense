@@ -162,7 +162,7 @@ function App() {
 
         <div className={`demo-notice ${usingPreview ? 'preview-notice' : ''}`}>
           <span className="notice-icon">{usingPreview ? '◷' : 'i'}</span>
-          <span><strong>{usingPreview ? 'PREVIEW DATA' : 'DEMO MODE'}</strong> {error && <small className="notice-error">API connection: {error}. Start FastAPI and simulator.py to load readings.</small>}</span>
+          <span><strong>{usingPreview ? 'PREVIEW DATA' : 'DEMO MODE'}</strong> — stop readings are {usingPreview ? 'example values shown because the API has no data' : 'simulated by the software device simulator'}. Bus arrival times are generated from a sample timetable, not live GPS.{error && <small className="notice-error">API connection: {error}. Start FastAPI and simulator.py to load readings.</small>}</span>
         </div>
 
         <nav className="view-switcher" aria-label="Choose dashboard view">
@@ -212,8 +212,20 @@ function PassengerView({ reading, arrivals }: { reading: Reading; arrivals: Retu
           <Condition icon="♙" label="Waiting crowd" value={reading.crowd_level} unit="" tone="green" detail="People at this stop" />
         </div>
         <div className="comfort-tip"><span>✦</span><span><strong>Cooling system {reading.cooler_on ? 'is running' : 'is on standby'}</strong><small>Comfort data last updated {formatTimestamp(reading.timestamp)}</small></span></div>
+        {reading.crowd_level === 'High' && <EhailAlternative stopId={reading.device_id} />}
       </article>
     </section>
+  )
+}
+
+function EhailAlternative({ stopId }: { stopId: string }) {
+  return (
+    <aside className="ehail-alternative" aria-label="Sample e-hailing alternative">
+      <div className="ehail-copy"><span className="simulated-tag">SAMPLE ALTERNATIVE</span><strong>Busy at {stopId}?</strong><span>Compare an e-hailing ride instead of waiting in the crowd.</span></div>
+      <div className="ehail-estimate"><strong>5 min</strong><span>sample pickup</span><strong>RM 8–12</strong><span>illustrative fare</span></div>
+      <span className="ehail-cta">VIEW SAMPLE RIDE ↗</span>
+      <small>Demo only · ETA and fare are not live quotes. No booking will be made.</small>
+    </aside>
   )
 }
 
@@ -227,6 +239,29 @@ function PassengerFlow({ reports }: { reports: PassengerCount[] }) {
       <div className="passenger-flow-heading">
         <div><span className="card-kicker">ONBOARD PASSENGER FLOW</span><h2 id="passenger-flow-title">Doorway camera counts</h2></div>
         <span className="flow-separation-note">Separate from people waiting at the stop</span>
+      </div>
+      <div className="vision-preview">
+        <div className="vision-preview-heading"><strong>Sample bus-door camera</strong><span>ANIMATED SIMULATION · NOT LIVE FOOTAGE</span></div>
+        <svg className="vision-feed" viewBox="0 0 640 270" role="img" aria-label="Animated illustrative bus-door camera simulation showing one person boarding and one alighting">
+          <defs><pattern id="vision-grid" width="16" height="16" patternUnits="userSpaceOnUse"><path d="M16 0H0V16" fill="none" stroke="#70c995" strokeOpacity=".08" strokeWidth="1" /></pattern></defs>
+          <rect width="640" height="270" rx="10" fill="#10271f" />
+          <rect width="640" height="270" rx="10" fill="url(#vision-grid)" />
+          <text x="20" y="27" className="vision-overlay">CAM 01 · BUS DOOR</text><circle cx="604" cy="22" r="5" fill="#fa7160" /><text x="615" y="27" className="vision-overlay">DEMO</text>
+          <path d="M30 215H610" stroke="#79a589" strokeOpacity=".65" strokeWidth="2" />
+          <rect x="300" y="54" width="300" height="157" rx="20" fill="#284b3b" stroke="#81b991" strokeWidth="2" />
+          <rect x="321" y="72" width="82" height="45" rx="5" fill="#163528" stroke="#79a589" />
+          <rect x="418" y="72" width="82" height="45" rx="5" fill="#163528" stroke="#79a589" />
+          <rect x="300" y="125" width="54" height="86" fill="#122a20" stroke="#b7ed96" strokeWidth="2" />
+          <path d="M327 128V208" stroke="#b7ed96" strokeDasharray="5 5" />
+          <rect x="287" y="119" width="80" height="101" rx="8" fill="none" stroke="#a7e06c" strokeWidth="2" strokeDasharray="7 5" />
+          <text x="278" y="238" className="vision-label">COUNTING LINE</text>
+          <g className="vision-person vision-boarder"><circle cx="450" cy="143" r="9" /><path d="M450 153V185M450 161L438 173M450 161L462 172M450 185L439 205M450 185L461 205" /></g>
+          <g className="vision-person vision-alighter"><circle cx="378" cy="143" r="9" /><path d="M378 153V185M378 161L366 173M378 161L390 172M378 185L367 205M378 185L389 205" /></g>
+          <rect x="18" y="228" width="116" height="26" rx="5" fill="#15382a" /><text x="28" y="246" className="vision-counter">BOARDING · 01</text>
+          <rect x="142" y="228" width="118" height="26" rx="5" fill="#15382a" /><text x="152" y="246" className="vision-counter">ALIGHTING · 01</text>
+          <text x="580" y="248" className="vision-overlay">LOOP 08s</text>
+        </svg>
+        <small>Illustrative synthetic animation only. No people are recorded; connect a consented camera feed to show real footage.</small>
       </div>
       {reports.length === 0 ? (
         <div className="flow-empty">No doorway camera reports yet. Counts will appear when the local camera counter is running.</div>
