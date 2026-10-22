@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import LiveCameraCounter from './LiveCameraCounter'
 
 type CrowdLevel = 'Low' | 'Moderate' | 'High' | 'Unknown'
 type Reading = {
@@ -19,6 +20,7 @@ type PassengerCount = {
   observed_at: string
   boarding_count: number
   alighting_count: number
+  occupancy_count: number | null
   confidence: number
   status: 'ok' | 'degraded' | 'offline' | 'error'
 }
@@ -222,7 +224,7 @@ function EhailAlternative({ stopId }: { stopId: string }) {
   return (
     <aside className="ehail-alternative" aria-label="Sample e-hailing alternative">
       <div className="ehail-copy"><span className="simulated-tag">SAMPLE ALTERNATIVE</span><strong>Busy at {stopId}?</strong><span>Compare an e-hailing ride instead of waiting in the crowd.</span></div>
-      <div className="ehail-estimate"><strong>5 min</strong><strong>RM 8–12</strong></div>
+      <div className="ehail-estimate"><strong>5 min</strong><span>sample pickup</span><strong>RM 8–12</strong><span>illustrative fare</span></div>
       <span className="ehail-cta">VIEW SAMPLE RIDE ↗</span>
       <small>Demo only · ETA and fare are not live quotes. No booking will be made.</small>
     </aside>
@@ -240,8 +242,9 @@ function PassengerFlow({ reports }: { reports: PassengerCount[] }) {
         <div><span className="card-kicker">ONBOARD PASSENGER FLOW</span><h2 id="passenger-flow-title">Doorway camera counts</h2></div>
         <span className="flow-separation-note">Separate from people waiting at the stop</span>
       </div>
+      <LiveCameraCounter apiUrl={API} />
       <div className="vision-preview">
-        <div className="vision-preview-heading"><strong>Sample bus-door camera</strong><span>ANIMATED SIMULATION · NOT LIVE FOOTAGE</span></div>
+        <div className="vision-preview-heading"><strong>Sample animated camera</strong><span>ANIMATED SIMULATION · NOT LIVE FOOTAGE</span></div>
         <svg className="vision-feed" viewBox="0 0 640 270" role="img" aria-label="Animated illustrative bus-door camera simulation showing one person boarding and one alighting">
           <defs><pattern id="vision-grid" width="16" height="16" patternUnits="userSpaceOnUse"><path d="M16 0H0V16" fill="none" stroke="#70c995" strokeOpacity=".08" strokeWidth="1" /></pattern></defs>
           <rect width="640" height="270" rx="10" fill="#10271f" />
@@ -278,6 +281,7 @@ function PassengerFlow({ reports }: { reports: PassengerCount[] }) {
                 <div className="flow-counts">
                   <div><span>Boarding</span><strong>{report.boarding_count}</strong></div>
                   <div><span>Alighting</span><strong>{report.alighting_count}</strong></div>
+                  <div><span>Estimated occupancy</span><strong>{typeof report.occupancy_count === 'number' ? report.occupancy_count : '—'}</strong></div>
                 </div>
                 <div className="flow-confidence"><span>Detector confidence <strong>{Math.round(confidence * 100)}%</strong></span><div><i style={{ width: `${confidence * 100}%` }} /></div></div>
                 <small className="flow-updated">Updated {formatTimestamp(report.observed_at)}</small>
@@ -286,7 +290,7 @@ function PassengerFlow({ reports }: { reports: PassengerCount[] }) {
           })}
         </div>
       )}
-      <p className="flow-disclaimer">Counts are camera estimates for people crossing the bus doorway, not a count of the stop crowd. Confidence is a detector score, not a calibrated accuracy guarantee.</p>
+      <p className="flow-disclaimer">Boarding, alighting, and occupancy are camera estimates from people crossing the configured bus-door line, not a count of the stop crowd. Occupancy starts at the configured initial count and does not change when a track merely disappears. Confidence is a detector score, not a calibrated accuracy guarantee.</p>
     </section>
   )
 }

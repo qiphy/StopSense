@@ -1,4 +1,4 @@
-"""Estimate bus boardings and alightings from a doorway camera stream.
+"""Estimate current occupancy and crossings from a camera stream.
 
 Runs person detection and tracking locally; frames are not saved or transmitted.
 """
@@ -20,13 +20,15 @@ from urllib.request import Request, urlopen
 class TrackState:
     side: int
     last_seen: float
-    counted: bool = False
 
 
 class LineCrossingCounter:
-    """Count each tracked person once when they cross a virtual doorway line."""
+    """Estimate occupancy from tracked people crossing a virtual boundary."""
 
-    def __init__(self, line: float, axis: Literal["x", "y"], in_direction: str, hysteresis: float = 12.0):
+    def __init__(self, line: float, axis: Literal["x", "y"], in_direction: str, hysteresis: float = 12.0,
+                 initial_occupancy: int = 0):
+        if initial_occupancy < 0:
+            raise ValueError("initial_occupancy cannot be negative")
         self.line = line
         self.axis = axis
         self.in_direction = in_direction
@@ -34,6 +36,7 @@ class LineCrossingCounter:
         self.tracks: dict[int, TrackState] = {}
         self.boardings = 0
         self.alightings = 0
+        self.occupancy_count = initial_occupancy
         self._crossing_confidence_sum = 0.0
         self._crossing_count = 0
 
@@ -66,9 +69,6 @@ class LineCrossingCounter:
             return None
 
         previous.side = side
-        if previous.counted:
-            return None
-        previous.counted = True
         self._crossing_confidence_sum += min(1.0, max(0.0, confidence))
         self._crossing_count += 1
 
@@ -76,8 +76,10 @@ class LineCrossingCounter:
         entering = (side > 0) == positive_is_in
         if entering:
             self.boardings += 1
+            self.occupancy_count += 1
             return "boarding"
         self.alightings += 1
+        self.occupancy_count = max(0, self.occupancy_count - 1)
         return "alighting"
 
 
@@ -87,6 +89,7 @@ def payload(counter: LineCrossingCounter, camera_id: str, status: str) -> dict[s
         "observed_at": datetime.now(timezone.utc).isoformat(),
         "boarding_count": counter.boardings,
         "alighting_count": counter.alightings,
+        "occupancy_count": counter.occupancy_count,
         "confidence": round(counter.confidence, 3),
         "status": status,
     }
@@ -110,7 +113,7 @@ def publish(api_url: str, report: dict[str, object]) -> None:
 
 
 def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Count bus boardings/alightings at a virtual line.")
+    parser = argparse.ArgumentParser(description="Estimate people crossing into and out of a monitored camera area.")
     parser.add_argument("--source", default="0", help="Camera index, video file, or stream URL (default: 0)")
     parser.add_argument("--model", default=os.environ.get("PASSENGER_MODEL", "yolo11n.pt"),
                         help="Local Ultralytics model path or model name (default yolo11n.pt)")
@@ -128,9 +131,11 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--line", type=float, default=0.55,
                         help="Normalized crossing-line position from 0.0 to 1.0 (default: 0.55)")
     parser.add_argument("--in-direction", choices=("left", "right", "up", "down"), default="down",
-                        help="Which way across the line means entering the bus")
+                        help="Which way across the line means entering the monitored area")
     parser.add_argument("--hysteresis", type=float, default=12,
                         help="Dead-band around the line, in pixels, to reduce jitter counts")
+    parser.add_argument("--initial-occupancy", type=int, default=0,
+                        help="Starting people count; default assumes the monitored area starts empty")
     parser.add_argument("--no-display", action="store_true", help="Run without an OpenCV preview window")
     parser.add_argument("--self-test", action="store_true",
                         help="Exercise line crossing logic offline without a camera/model")
@@ -139,6 +144,8 @@ def parse_args() -> argparse.Namespace:
         parser.error("--line must be between 0 and 1")
     if args.hysteresis < 0:
         parser.error("--hysteresis cannot be negative")
+    if args.initial_occupancy < 0:
+        parser.error("--initial-occupancy cannot be negative")
     if not 0 <= args.confidence <= 1:
         parser.error("--confidence must be between 0 and 1")
     if args.publish_interval <= 0:
@@ -151,7 +158,7 @@ def parse_args() -> argparse.Namespace:
 def main() -> None:
     args = parse_args()
     if args.self_test:
-        counter = LineCrossingCounter(0.55, "y", "down", hysteresis=5)
+        counter = LineCrossingCounter(0.55, "y", "down", hysteresis=5, initial_occupancy=2)
         counter.update(1, 50, 30, 100, 100, confidence=0.8)
         counter.update(1, 50, 70, 100, 100, confidence=0.9)
         counter.update(1, 50, 85, 100, 100, confidence=0.9)
@@ -160,10 +167,11 @@ def main() -> None:
         result = {
             "boarding_count": counter.boardings,
             "alighting_count": counter.alightings,
+            "occupancy_count": counter.occupancy_count,
             "confidence": round(counter.confidence, 3),
         }
         print(json.dumps(result, indent=2))
-        if counter.boardings != 1 or counter.alightings != 1:
+        if counter.boardings != 1 or counter.alightings != 1 or counter.occupancy_count != 2:
             raise SystemExit("Offline crossing self-test failed")
         return
 
@@ -180,7 +188,10 @@ def main() -> None:
     if not capture.isOpened():
         raise SystemExit(f"Could not open video source: {args.source}")
 
-    counter = LineCrossingCounter(args.line, args.axis, args.in_direction, args.hysteresis)
+    counter = LineCrossingCounter(
+        args.line, args.axis, args.in_direction, args.hysteresis,
+        initial_occupancy=args.initial_occupancy,
+    )
     last_publish = 0.0
     status = "ok"
     print("Counting locally. Press q to stop. Check direction with a short test before relying on counts.")

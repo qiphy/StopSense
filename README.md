@@ -106,19 +106,41 @@ The API validates values and returns HTTP `201` for accepted data or `422` for i
 
 For real deployment, only report a stop crowd level from a verified source (for example manual observation or an approved people-counting sensor), with a timestamp and source label. GPS on buses does not provide occupancy. Onboard bus crowding would need RapidKL passenger-count data or an approved onboard counting system; this demo does not estimate it.
 
-### Doorway passenger counter (boarding/alighting)
+### Doorway passenger counter (boarding/alighting/occupancy)
 
-`bus_counter.py` detects and tracks people on the local machine and counts a
-track once when it crosses the configured doorway line. Frames stay in process
-memory: the script does not save or transmit footage, and it uses no facial
-recognition. These counts are a separate metric from `crowd_level`, which still
-means people waiting at the bus stop. The React Operations view shows each
-camera's boarding and alighting totals, status, confidence, and update time. The Operations view also shows a synthetic animated bus-door scene for demonstration; it is not recorded footage and its illustrated counts are not live camera measurements. Real camera-count reports remain separate and appear in the report cards below it.
+The Operations view includes a **Start webcam** control. After the operator
+clicks it and grants browser permission, the browser captures video and runs a
+person detector locally. It estimates boarding/alighting and occupancy from
+tracked people crossing the displayed horizontal line. Choose which vertical
+direction means entering and set a starting occupancy before starting. The
+video frames stay in the browser and are never sent to the API; only aggregate
+counts are posted to `POST /passenger-counts`. Camera access requires HTTPS or
+`localhost`. The detector model is loaded on first use, so an internet
+connection is needed to load it.
+
+The browser counter increments occupancy on an entering crossing and decrements
+it on the reverse crossing (clamped at zero). A person disappearing from the
+frame is not treated as an exit, since occlusion or a dropped track can cause
+false exits. Occupancy is an estimate from observed crossings, not a direct
+count of everyone currently onboard. It defaults to zero; set the starting
+occupancy before activation if the monitored area is not empty. The browser
+tracker is a lightweight prototype and can mis-associate people in dense scenes
+or after occlusion; validate it at the actual camera angle before relying on it.
+
+An alternative local Python counter is provided in `bus_counter.py`; it uses
+OpenCV and Ultralytics, and has its own `--initial-occupancy` argument. Its
+frames also stay on the host and are never uploaded. Do not run both counters
+against the same webcam at once, as the camera may not support simultaneous
+access. These camera counts are separate from `crowd_level`, which means people
+waiting at the bus stop. The React Operations view shows each camera's boarding,
+alighting, estimated occupancy, status, confidence, and update time. Its
+animated bus-door scene remains a synthetic illustration, not a camera feed.
 
 The API accepts this aggregate payload at `POST /passenger-counts` and keeps the
 latest report per camera in a dedicated SQLite table; it does not alter the
-existing `/telemetry` schema. Retrieve reports with `GET /passenger-counts` or
-filter with `GET /passenger-counts?camera_id=bus-door-01`:
+existing `/telemetry` schema. `occupancy_count` is nullable for older counter
+clients. Retrieve reports with `GET /passenger-counts` or filter with
+`GET /passenger-counts?camera_id=bus-door-01`:
 
 ```json
 {
@@ -126,6 +148,7 @@ filter with `GET /passenger-counts?camera_id=bus-door-01`:
   "observed_at": "2026-10-21T00:00:00+00:00",
   "boarding_count": 3,
   "alighting_count": 1,
+  "occupancy_count": 12,
   "confidence": 0.82,
   "status": "ok"
 }
@@ -149,13 +172,15 @@ camera stream. For a side-on view, use `--axis x --in-direction right`; switch
 `right`/`down` to `left`/`up` if your camera orientation is reversed. Adjust
 `--line` to position the virtual line. Configure the detector with `--model`
 and `--confidence`, and tracking with `--tracker`; set `--hysteresis` to add a
-dead-band against line jitter. `--api-url ""` disables publishing, and
-`--no-display` runs headlessly. `PASSENGER_COUNT_API_URL`, `PASSENGER_CAMERA_ID`,
-and `PASSENGER_MODEL` can also configure these values. The API replaces each
-camera's latest aggregate, while the camera's totals are cumulative for that
-counter process. Status changes to offline at stream end and the UI marks an
-otherwise-ok report stale after 30 seconds. Confidence is the mean model score
-for counted crossings, not calibrated counting accuracy.
+dead-band against line jitter. Use `--initial-occupancy N` to seed a non-empty
+monitored area at startup (the default is zero). `--api-url ""` disables
+publishing, and `--no-display` runs headlessly. `PASSENGER_COUNT_API_URL`,
+`PASSENGER_CAMERA_ID`, and `PASSENGER_MODEL` can also configure these values.
+The API replaces each camera's latest aggregate, while the camera's boarding,
+alighting, and occupancy values are cumulative/estimated for that counter
+process. Status changes to offline at stream end and the UI marks an otherwise-ok
+report stale after 30 seconds. Confidence is the mean model score for counted
+crossings, not calibrated counting accuracy.
 
 Validate the line counter without a camera or optional CV packages:
 

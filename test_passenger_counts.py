@@ -1,5 +1,6 @@
 import asyncio
 import json
+import sqlite3
 import tempfile
 import unittest
 from datetime import datetime
@@ -30,16 +31,19 @@ class PassengerCountApiTests(unittest.TestCase):
             "observed_at": "2026-10-21T00:00:00+00:00",
             "boarding_count": 4,
             "alighting_count": 2,
+            "occupancy_count": 7,
             "confidence": 0.84,
             "status": "ok",
         }
         main.receive_passenger_count(main.PassengerCount(**report))
-        updated = {**report, "boarding_count": 5}
+        updated = {key: value for key, value in report.items() if key != "occupancy_count"}
+        updated["boarding_count"] = 5
         main.receive_passenger_count(main.PassengerCount(**updated))
         listing = main.list_passenger_counts(camera_id="bus-door-01")["items"]
         self.assertEqual(len(listing), 1)
         self.assertEqual(listing[0]["boarding_count"], 5)
         self.assertEqual(listing[0]["alighting_count"], 2)
+        self.assertEqual(listing[0]["occupancy_count"], 7)
         self.assertEqual(listing[0]["confidence"], 0.84)
         self.assertNotIn("crowd_level", listing[0])
         routes = [route for route in main.app.routes if route.path == "/passenger-counts"]
@@ -75,6 +79,24 @@ class PassengerCountApiTests(unittest.TestCase):
         self.assertEqual(updated["items"][0]["device_id"], "streamed-stop")
         self.assertFalse(main.telemetry_subscribers)
 
+    def test_existing_passenger_count_table_migrates_with_nullable_occupancy(self):
+        with sqlite3.connect(self.db_path) as connection:
+            connection.execute("DROP TABLE passenger_counts")
+            connection.execute(
+                """CREATE TABLE passenger_counts (
+                    camera_id TEXT PRIMARY KEY,
+                    observed_at TEXT NOT NULL,
+                    boarding_count INTEGER NOT NULL,
+                    alighting_count INTEGER NOT NULL,
+                    confidence REAL NOT NULL,
+                    status TEXT NOT NULL
+                )"""
+            )
+        main.initialize_db()
+        with sqlite3.connect(self.db_path) as connection:
+            columns = {row[1] for row in connection.execute("PRAGMA table_info(passenger_counts)")}
+        self.assertIn("occupancy_count", columns)
+
     def test_invalid_counts_and_confidence_are_rejected(self):
         with self.assertRaises(ValidationError):
             main.PassengerCount(
@@ -104,7 +126,21 @@ class PassengerCountApiTests(unittest.TestCase):
 
 
 class LineCrossingTests(unittest.TestCase):
-    def test_counts_each_track_once_and_emits_confidence_payload(self):
+    def test_occupancy_increments_and_decrements_on_each_boundary_crossing(self):
+        counter = LineCrossingCounter(0.5, "x", "right", hysteresis=5, initial_occupancy=3)
+        counter.update(1, 30, 50, 100, 100)
+        self.assertEqual(counter.update(1, 70, 50, 100, 100), "boarding")
+        self.assertEqual(counter.occupancy_count, 4)
+        self.assertEqual(counter.update(1, 30, 50, 100, 100), "alighting")
+        self.assertEqual(counter.occupancy_count, 3)
+
+    def test_occupancy_never_drops_below_zero(self):
+        counter = LineCrossingCounter(0.5, "x", "right", hysteresis=5)
+        counter.update(1, 70, 50, 100, 100)
+        self.assertEqual(counter.update(1, 30, 50, 100, 100), "alighting")
+        self.assertEqual(counter.occupancy_count, 0)
+
+    def test_counts_line_crossings_and_emits_confidence_payload(self):
         counter = LineCrossingCounter(0.55, "y", "down", hysteresis=5)
         self.assertIsNone(counter.update(1, 50, 30, 100, 100, confidence=0.8))
         self.assertEqual(counter.update(1, 50, 70, 100, 100, confidence=0.9), "boarding")
