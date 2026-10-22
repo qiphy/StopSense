@@ -136,6 +136,20 @@ waiting at the bus stop. The React Operations view shows each camera's boarding,
 alighting, estimated occupancy, status, confidence, and update time. The live
 camera preview appears in this view only while the operator has started it.
 
+The Operations camera controls let the operator associate the current crossing
+counter with a sample bus route and cycle among routes. Passenger view shows the
+latest route-specific camera estimate when one exists. Bus crowd levels are
+derived from the counter's starting occupancy plus tracked doorway crossings;
+they are not a direct view of all passengers inside the bus. The demonstration
+thresholds are Low (0–10), Moderate (11–25), and High (26+), and are not
+validated capacity limits. These camera-derived route estimates are separate
+from stop waiting-area crowd telemetry.
+
+Where the browser exposes multiple video inputs, the camera selector can choose
+one directly and the front/back control requests the user-facing or
+environment-facing camera. Camera availability depends on device, browser, and
+permissions; a one-camera device cannot switch between physical cameras.
+
 The API accepts this aggregate payload at `POST /passenger-counts` and keeps the
 latest report per camera in a dedicated SQLite table; it does not alter the
 existing `/telemetry` schema. `occupancy_count` is nullable for older counter

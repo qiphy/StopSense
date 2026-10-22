@@ -2,12 +2,17 @@ import { useEffect, useRef, useState } from 'react'
 
 type Counts = { boarding: number; alighting: number; occupancy: number }
 type Track = { id: number; x: number; y: number; side: -1 | 0 | 1; lastFrame: number }
+type Bus = { route: string; destination: string }
+type CrowdLevel = 'Low' | 'Moderate' | 'High'
+type CrowdEstimate = { occupancy: number; level: CrowdLevel; observedAt: string; active: boolean }
+type CameraDevice = { id: string; label: string }
 
 const LINE = 0.55
 const HYSTERESIS = 12
 const CAMERA_ID = 'browser-camera-01'
+const crowdLevelFor = (occupancy: number): CrowdLevel => occupancy <= 10 ? 'Low' : occupancy <= 25 ? 'Moderate' : 'High'
 
-export default function LiveCameraCounter({ apiUrl }: { apiUrl: string }) {
+export default function LiveCameraCounter({ apiUrl, buses, selectedBusRoute, onBusChange, onCrowdEstimate, crowdEstimates }: { apiUrl: string; buses: Bus[]; selectedBusRoute: string; onBusChange: (route: string) => void; onCrowdEstimate: (route: string, estimate: CrowdEstimate) => void; crowdEstimates: Record<string, CrowdEstimate> }) {
   const videoRef = useRef<HTMLVideoElement>(null)
   const mountedRef = useRef(true)
   const streamRef = useRef<MediaStream | null>(null)
@@ -18,11 +23,19 @@ export default function LiveCameraCounter({ apiUrl }: { apiUrl: string }) {
   const frameRef = useRef(0)
   const countsRef = useRef<Counts>({ boarding: 0, alighting: 0, occupancy: 0 })
   const confidenceRef = useRef({ sum: 0, count: 0 })
+  const selectedBusRouteRef = useRef(selectedBusRoute)
+  const previousBusRouteRef = useRef(selectedBusRoute)
+  selectedBusRouteRef.current = selectedBusRoute
   const [counts, setCounts] = useState<Counts>(countsRef.current)
   const [state, setState] = useState<'idle' | 'starting' | 'active' | 'error'>('idle')
+  const stateRef = useRef(state)
+  stateRef.current = state
   const [message, setMessage] = useState('')
   const [initialOccupancy, setInitialOccupancy] = useState(0)
   const [enteringDirection, setEnteringDirection] = useState<'down' | 'up'>('down')
+  const [cameraDevices, setCameraDevices] = useState<CameraDevice[]>([])
+  const [selectedCameraId, setSelectedCameraId] = useState('')
+  const [cameraFacing, setCameraFacing] = useState<'user' | 'environment'>('environment')
 
   const publish = async (status: 'ok' | 'offline') => {
     const metrics = confidenceRef.current
@@ -55,10 +68,25 @@ export default function LiveCameraCounter({ apiUrl }: { apiUrl: string }) {
     streamRef.current = null
     if (videoRef.current) videoRef.current.srcObject = null
     if (state === 'active') await publish('offline')
+    onCrowdEstimate(selectedBusRoute, { occupancy: countsRef.current.occupancy, level: crowdLevelFor(countsRef.current.occupancy), observedAt: new Date().toISOString(), active: false })
     setState('idle')
   }
 
-  const startCamera = async () => {
+  const switchCamera = async (deviceId: string) => {
+    await stopCamera()
+    setSelectedCameraId(deviceId)
+    await startCamera(deviceId, cameraFacing, true)
+  }
+
+  const switchFacing = async () => {
+    const nextFacing = cameraFacing === 'environment' ? 'user' : 'environment'
+    await stopCamera()
+    setCameraFacing(nextFacing)
+    setSelectedCameraId('')
+    await startCamera('', nextFacing, true)
+  }
+
+  const startCamera = async (deviceId = '', facing = cameraFacing, keepCounts = false) => {
     if (!navigator.mediaDevices?.getUserMedia) {
       setMessage('Camera access requires a secure page (HTTPS or localhost) and a supported browser')
       setState('error')
@@ -67,12 +95,20 @@ export default function LiveCameraCounter({ apiUrl }: { apiUrl: string }) {
     setState('starting')
     setMessage('Requesting camera permission…')
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ video: { width: { ideal: 640 }, height: { ideal: 480 } }, audio: false })
+      const video: MediaTrackConstraints = deviceId
+        ? { deviceId: { exact: deviceId }, width: { ideal: 640 }, height: { ideal: 480 } }
+        : { facingMode: { ideal: facing }, width: { ideal: 640 }, height: { ideal: 480 } }
+      const stream = await navigator.mediaDevices.getUserMedia({ video, audio: false })
       if (!mountedRef.current) {
         stream.getTracks().forEach((track) => track.stop())
         return
       }
       streamRef.current = stream
+      const devices = await navigator.mediaDevices.enumerateDevices()
+      const cameras = devices.filter((device) => device.kind === 'videoinput').map((device, index) => ({ id: device.deviceId, label: device.label || `Camera ${index + 1}` }))
+      setCameraDevices(cameras)
+      const activeCameraId = stream.getVideoTracks()[0]?.getSettings().deviceId ?? deviceId
+      setSelectedCameraId(activeCameraId)
       if (!videoRef.current) throw new Error('Camera preview is not available')
       videoRef.current.srcObject = stream
       await videoRef.current.play()
@@ -92,7 +128,7 @@ export default function LiveCameraCounter({ apiUrl }: { apiUrl: string }) {
         streamRef.current?.getTracks().forEach((track) => track.stop())
         return
       }
-      countsRef.current = { boarding: 0, alighting: 0, occupancy: Math.max(0, Math.floor(initialOccupancy)) }
+      if (!keepCounts) countsRef.current = { boarding: 0, alighting: 0, occupancy: Math.max(0, Math.floor(initialOccupancy)) }
       setCounts(countsRef.current)
       tracksRef.current = []
       nextTrackIdRef.current = 1
@@ -100,6 +136,7 @@ export default function LiveCameraCounter({ apiUrl }: { apiUrl: string }) {
       confidenceRef.current = { sum: 0, count: 0 }
       runningRef.current = true
       setState('active')
+      onCrowdEstimate(selectedBusRoute, { occupancy: countsRef.current.occupancy, level: crowdLevelFor(countsRef.current.occupancy), observedAt: new Date().toISOString(), active: true })
       await publish('ok')
 
       const detect = async () => {
@@ -159,6 +196,7 @@ export default function LiveCameraCounter({ apiUrl }: { apiUrl: string }) {
           if (nextCounts.boarding !== countsRef.current.boarding || nextCounts.alighting !== countsRef.current.alighting || nextCounts.occupancy !== countsRef.current.occupancy) {
             countsRef.current = nextCounts
             setCounts(nextCounts)
+            onCrowdEstimate(selectedBusRouteRef.current, { occupancy: nextCounts.occupancy, level: crowdLevelFor(nextCounts.occupancy), observedAt: new Date().toISOString(), active: true })
           }
           if (frame % 7 === 0) void publish('ok')
         } catch {
@@ -184,13 +222,38 @@ export default function LiveCameraCounter({ apiUrl }: { apiUrl: string }) {
       runningRef.current = false
       if (timerRef.current !== null) window.clearTimeout(timerRef.current)
       streamRef.current?.getTracks().forEach((track) => track.stop())
+      if (stateRef.current === 'active') {
+        const occupancy = countsRef.current.occupancy
+        onCrowdEstimate(selectedBusRouteRef.current, { occupancy, level: crowdLevelFor(occupancy), observedAt: new Date().toISOString(), active: false })
+        void publish('offline')
+      }
     }
   }, [])
+
+  useEffect(() => {
+    if (state === 'active') {
+      if (previousBusRouteRef.current !== selectedBusRoute) {
+        const previousOccupancy = countsRef.current.occupancy
+        onCrowdEstimate(previousBusRouteRef.current, { occupancy: previousOccupancy, level: crowdLevelFor(previousOccupancy), observedAt: new Date().toISOString(), active: false })
+        const routeOccupancy = crowdEstimates[selectedBusRoute]?.occupancy ?? Math.max(0, Math.floor(initialOccupancy))
+        countsRef.current = { boarding: 0, alighting: 0, occupancy: routeOccupancy }
+        tracksRef.current = []
+        nextTrackIdRef.current = 1
+        setCounts(countsRef.current)
+      } else {
+        onCrowdEstimate(selectedBusRoute, { occupancy: counts.occupancy, level: crowdLevelFor(counts.occupancy), observedAt: new Date().toISOString(), active: true })
+      }
+    }
+    previousBusRouteRef.current = selectedBusRoute
+  }, [selectedBusRoute, state, counts])
 
   return (
     <div className="live-camera">
       <div className="live-camera-heading">
         <div><strong>Live webcam · local detection</strong><span>Camera video stays in this browser</span></div>
+        <label>Bus for crowd estimate <select aria-label="Bus for crowd estimate" value={selectedBusRoute} onChange={(event) => onBusChange(event.target.value)}>{buses.map((bus) => <option key={bus.route} value={bus.route}>{bus.route} · {bus.destination}</option>)}</select></label>
+        <label>Camera <select aria-label="Select camera device" value={selectedCameraId} disabled={state === 'starting' || cameraDevices.length === 0} onChange={(event) => void switchCamera(event.target.value)}>{cameraDevices.map((camera) => <option key={camera.id} value={camera.id}>{camera.label}</option>)}</select></label>
+        <button type="button" className="camera-facing-toggle" disabled={state === 'starting' || cameraDevices.length === 1} onClick={() => state === 'active' ? void switchFacing() : setCameraFacing(cameraFacing === 'environment' ? 'user' : 'environment')}>{cameraFacing === 'environment' ? 'Switch to front camera' : 'Switch to back camera'}</button>
         <label>Enters moving <select aria-label="Entering direction" value={enteringDirection} disabled={state === 'active' || state === 'starting'} onChange={(event) => setEnteringDirection(event.target.value as 'down' | 'up')}><option value="down">Down</option><option value="up">Up</option></select></label>
         <label>Starting occupancy <input aria-label="Starting occupancy" type="number" min="0" step="1" value={initialOccupancy} disabled={state === 'active' || state === 'starting'} onChange={(event) => setInitialOccupancy(Math.max(0, Number(event.target.value) || 0))} /></label>
       </div>
@@ -201,9 +264,10 @@ export default function LiveCameraCounter({ apiUrl }: { apiUrl: string }) {
       </div>
       <div className="live-camera-controls">
         <div className="live-local-counts"><span>Boarding <strong>{counts.boarding}</strong></span><span>Alighting <strong>{counts.alighting}</strong></span><span>Occupancy <strong>{counts.occupancy}</strong></span></div>
-        <button type="button" disabled={state === 'starting'} onClick={state === 'active' ? stopCamera : startCamera}>{state === 'active' ? 'Stop webcam' : state === 'starting' ? 'Starting…' : 'Start webcam'}</button>
+        <button type="button" disabled={state === 'starting'} onClick={() => void (state === 'active' ? stopCamera() : startCamera())}>{state === 'active' ? 'Stop webcam' : state === 'starting' ? 'Starting…' : 'Start webcam'}</button>
       </div>
       <small className="live-camera-message" role="status">{message || 'No video is sent to the API; only aggregate counts are published.'}</small>
+      {cameraDevices.length === 1 && <small className="live-camera-privacy">Only one camera is available on this device; front/back switching is not supported.</small>}
       <small className="live-camera-privacy">Allow camera access when prompted. Use an approved camera and obtain required consent. Stop the camera when finished.</small>
     </div>
   )
