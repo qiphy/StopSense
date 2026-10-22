@@ -170,9 +170,9 @@ function App() {
   return (
     <div className="app-shell">
       <header className="topbar">
-        <a className="brand" href="#home" aria-label="CoolStop home">
+        <a className="brand" href="#home" aria-label="StopSense home">
           <span className="brand-mark">C</span>
-          <span>coolstop<span className="brand-dot">.</span><small>Township transit, made better</small></span>
+          <span>StopSense<span className="brand-dot">.</span><small>Township transit, made better</small></span>
         </a>
         <div className="topbar-right">
           <span className={`connection ${error ? 'connection-offline' : ''}`}><i />{error ? 'Preview mode' : 'Demo system'}</span>
@@ -217,7 +217,7 @@ function App() {
           </>
         )}
 
-        <footer className="footer"><span>CoolStop · Bus stop cooling and transit information prototype</span><span>Crowd level is waiting-area estimate, not onboard occupancy.</span></footer>
+        <footer className="footer"><span>StopSense · Bus stop cooling and transit information prototype</span><span>Crowd level is waiting-area estimate, not onboard occupancy.</span></footer>
       </main>
     </div>
   )
@@ -304,7 +304,7 @@ function StopScreen({ reading, arrivals }: { reading: Reading; arrivals: ReturnT
   return (
     <section className="screen-wrap">
       <div className="screen-device">
-        <div className="screen-header"><span className="screen-logo">C</span><span>COOLSTOP <small>SMART BUS STOP</small></span><span className="screen-clock">{new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span></div>
+        <div className="screen-header"><span className="screen-logo">C</span><span>StopSense <small>SMART BUS STOP</small></span><span className="screen-clock">{new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span></div>
         <div className="screen-content-grid">
           <section className="screen-arrivals-panel" aria-label="Upcoming bus arrivals">
             <div className="screen-next-label">UPCOMING BUSES <span className="simulated-tag">SIMULATED</span></div>

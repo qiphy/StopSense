@@ -1,4 +1,4 @@
-# CoolStop bus-stop telemetry prototype
+# StopSense bus-stop telemetry prototype
 
 A local prototype with a **React + TypeScript frontend**, FastAPI telemetry API, SQLite storage, and a simulated device:
 
