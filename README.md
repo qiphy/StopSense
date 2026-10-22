@@ -133,8 +133,8 @@ frames also stay on the host and are never uploaded. Do not run both counters
 against the same webcam at once, as the camera may not support simultaneous
 access. These camera counts are separate from `crowd_level`, which means people
 waiting at the bus stop. The React Operations view shows each camera's boarding,
-alighting, estimated occupancy, status, confidence, and update time. Its
-animated bus-door scene remains a synthetic illustration, not a camera feed.
+alighting, estimated occupancy, status, confidence, and update time. The live
+camera preview appears in this view only while the operator has started it.
 
 The API accepts this aggregate payload at `POST /passenger-counts` and keeps the
 latest report per camera in a dedicated SQLite table; it does not alter the
