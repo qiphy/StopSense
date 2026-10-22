@@ -133,14 +133,21 @@ export function EhailingCompare({ disrupted = false, stopId }: { disrupted?: boo
 
 export function ScreenSampleAd({ stopId }: { stopId: string }) {
   const offer = useRotatingOffer()
-  const [expanded, setExpanded] = useState(false)
   const routeUrl = appLink('route', `${stopId}|${offer.id}`)
   return <>
     <aside className="screen-ad" aria-label="Time-based sample nearby shop advertisement">
       <div className="screen-ad-copy"><span className="screen-ad-label">NEARBY SHOP · SAMPLE AD</span><strong>{offer.title}</strong><small>{offer.shop} · {offer.detail}</small></div>
-      <button type="button" className="screen-ad-cta" onClick={() => setExpanded((value) => !value)}>{expanded ? 'HIDE DETAILS' : 'SHOP & ROUTE QR'} <b>↗</b></button>
     </aside>
-    {expanded && <div className="screen-shop-details"><div><strong>{offer.voucher} · sample voucher</strong><span>🚶 {offer.walk} · 🚌 {offer.route} · Alight at {offer.alight}</span><small>Fictional demo offer and directions; check a live map. Partner redemption is not connected.</small></div><LocalQr value={routeUrl} label="Demo shop route" /></div>}
+    <div className="screen-shop-details" aria-label="Sample shop route and offer">
+      <div>
+        <strong>SHOP ROUTE · SAMPLE</strong>
+        <span>🚶 {offer.walk} · 🚌 {offer.route}</span>
+        <span>↓ Alight at {offer.alight}</span>
+        <span>Sample voucher: {offer.voucher}</span>
+        <small>Fictional offer and directions; verify the route before travelling. Voucher redemption is not connected.</small>
+      </div>
+      <LocalQr value={routeUrl} label="Shop route & offer" />
+    </div>
   </>
 }
 

@@ -81,7 +81,7 @@ The frontend opens a Server-Sent Events connection to `GET /events/telemetry`. T
 
 ### Simulated bus arrivals
 
-ETAs are generated in the frontend from example route headways, not live bus GPS. They are labelled simulated in all views. Passenger view includes a time-based sample nearby-shop offer, expandable shop details, sample walk/bus/alight directions, locally generated QR codes for demo voucher and route links, a location-permission prompt, sample disruption alternatives, and a comparison of fictional e-hailing providers. The stop screen shows a time-appropriate sample ad and QR links for shop details and journey alternatives. QR scans reopen the demo app and display a prototype notice; voucher redemption, map navigation and live service data are not integrated. No user location is stored or sent to the API; location access is only requested after the user presses the button. The demo does not use coordinates for routing: even after permission is granted, the sample alternatives are still based on the selected stop until an approved map/transit routing source is integrated.
+ETAs are generated in the frontend from example route headways, not live bus GPS. They are labelled simulated in all views. Passenger view includes a time-based sample nearby-shop offer, expandable shop details, sample walk/bus/alight directions, locally generated QR codes for demo voucher and route links, a location-permission prompt, sample disruption alternatives, and a comparison of fictional e-hailing providers. The non-touchscreen stop display shows the shop route, sample voucher, and QR code directly without requiring interaction; a separate QR opens journey alternatives on a phone. QR scans reopen the demo app and display a prototype notice; voucher redemption, map navigation and live service data are not integrated. No user location is stored or sent to the API; location access is only requested after the user presses the button. The demo does not use coordinates for routing: even after permission is granted, the sample alternatives are still based on the selected stop until an approved map/transit routing source is integrated.
 
 The disruption control is a local simulation, not a real disruption feed. Alternative bus routes, fare estimates, pickup ETAs and vehicle types are fictional examples. Selecting “continue” does not place an order or contact a provider. Public transport alternatives are shown first; real multi-provider quotes and booking require transit/map feeds and each e-hailing company’s agreement and API integration. Shop names/offers are also fictional and do not imply a partnership. For real arrivals, connect an authorized transit API or GTFS-Realtime feed and report its source and update time. Crowd level means people waiting at the stop, **not occupancy onboard a bus**.
 
@@ -139,13 +139,14 @@ alighting, estimated occupancy, status, confidence, and update time. The live
 camera preview appears in this view only while the operator has started it.
 
 The Operations camera controls let the operator associate the current crossing
-counter with a sample bus route and cycle among routes. Passenger view shows the
-latest route-specific camera estimate when one exists. Bus crowd levels are
-derived from the counter's starting occupancy plus tracked doorway crossings;
-they are not a direct view of all passengers inside the bus. The demonstration
-thresholds are Low (0–10), Moderate (11–25), and High (26+), and are not
-validated capacity limits. These camera-derived route estimates are separate
-from stop waiting-area crowd telemetry.
+counter with a sample bus route and cycle among routes. Passenger view shows
+only the selected bus's crowd level (Low, Moderate, or High), without camera
+controls, video, or a raw occupancy count. Bus crowd levels are derived from the
+counter's starting occupancy plus tracked doorway crossings; they are not a
+direct view of all passengers inside the bus. The demonstration thresholds are
+Low (0–10), Moderate (11–25), and High (26+), and are not validated capacity
+limits. These route estimates are separate from stop waiting-area crowd
+telemetry.
 
 Where the browser exposes multiple video inputs, the camera selector can choose
 one directly and the front/back control requests the user-facing or
