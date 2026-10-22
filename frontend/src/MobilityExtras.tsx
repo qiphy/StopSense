@@ -64,23 +64,43 @@ export function LocalQr({ value, label }: { value: string; label: string }) {
 
 export function ShopOfferCard({ stopId, compact = false }: { stopId: string; compact?: boolean }) {
   const offer = useRotatingOffer()
+  const [activeSlide, setActiveSlide] = useState(0)
   const [detailsOpen, setDetailsOpen] = useState(false)
-  const voucherUrl = appLink('voucher', offer.voucher)
-  const routeUrl = appLink('route', `${stopId}|${offer.id}`)
+  const currentIndex = offers.findIndex((item) => item.id === offer.id)
+  const slides = [offer, offers[(currentIndex + 1) % offers.length]]
+  const activeOffer = slides[activeSlide]
+  const voucherUrl = appLink('voucher', activeOffer.voucher)
+  const routeUrl = appLink('route', `${stopId}|${activeOffer.id}`)
+  useEffect(() => {
+    const timer = window.setInterval(() => {
+      setActiveSlide((current) => (current + 1) % slides.length)
+      setDetailsOpen(false)
+    }, 15000)
+    return () => window.clearInterval(timer)
+  }, [slides.length])
   return (
-    <section className={`shop-offer-card ${compact ? 'shop-offer-compact' : ''}`} aria-label="Sample nearby shop offer">
-      <div className="shop-offer-main">
-        <div><span className="card-kicker">NEARBY · TIME-BASED SAMPLE OFFER</span><span className="simulated-tag">SAMPLE PARTNER</span></div>
-        <strong>{offer.title}</strong>
-        <span>{offer.shop} · {offer.detail}</span>
-        <button type="button" className="shop-offer-link" onClick={() => setDetailsOpen((open) => !open)} aria-expanded={detailsOpen}>{detailsOpen ? 'Hide shop details' : 'Shop details, directions & voucher'} <b>{detailsOpen ? '−' : '↗'}</b></button>
+    <section className={`shop-offer-card ${compact ? 'shop-offer-compact' : ''}`} aria-label="Rotating sample nearby shop advertisements" aria-roledescription="carousel">
+      <div className="shop-offer-viewport">
+        <div className="shop-offer-track" style={{ transform: `translateX(-${activeSlide * 100}%)` }}>
+          {slides.map((slide, index) => (
+            <article className="shop-offer-slide" key={slide.id} aria-label={`Advertisement ${index + 1} of ${slides.length}`}>
+              <div className={`shop-offer-art shop-offer-art-${index + 1}`} aria-hidden="true"><span>{index === 0 ? '☕' : '✦'}</span><small>LOCAL<br />PICKS</small></div>
+              <div className="shop-offer-main">
+                <div><span className="card-kicker">NEARBY · TIME-BASED SAMPLE AD</span><span className="simulated-tag">SAMPLE PARTNER</span></div>
+                <strong>{slide.title}</strong>
+                <span>{slide.shop} · {slide.detail}</span>
+                <button type="button" className="shop-offer-link" onClick={() => setDetailsOpen((open) => !open)} aria-expanded={detailsOpen}>{detailsOpen ? 'Hide shop details' : 'Shop details, directions & voucher'} <b>{detailsOpen ? '−' : '↗'}</b></button>
+              </div>
+            </article>
+          ))}
+        </div>
       </div>
+      <div className="shop-offer-pagination" aria-hidden="true"><span>{activeSlide + 1} / {slides.length}</span><div>{slides.map((slide, index) => <i key={slide.id} className={activeSlide === index ? 'active' : ''} />)}</div><span>Changes every 15 sec</span></div>
       {detailsOpen && <div className="shop-offer-details">
-        <div className="shop-directions"><strong>From {stopId}</strong><span>🚶 {offer.walk}</span><span>🚌 {offer.route}</span><span>↓ Alight: {offer.alight}</span><small>Sample directions only · verify with a live map before travelling.</small></div>
-        <div className="shop-voucher"><strong>Sample voucher: {offer.voucher}</strong><span>Scan to open the demo voucher link. Real redemption needs the shop and app integration.</span><LocalQr value={voucherUrl} label="Demo voucher" /></div>
-        <div className="shop-route-qr"><strong>Continue journey</strong><span>Scan to open the sample route link.</span><LocalQr value={routeUrl} label="Demo directions" /></div>
+        <div className="shop-directions"><strong>From {stopId}</strong><span>🚶 {activeOffer.walk}</span><span>🚌 {activeOffer.route}</span><span>↓ Alight: {activeOffer.alight}</span><small>Sample directions only · verify with a live map before travelling.</small><LocalQr value={routeUrl} label="Demo directions" /></div>
+        <div className="shop-voucher"><strong>Sample voucher: {activeOffer.voucher}</strong><span>Scan to open the demo voucher link. Real redemption needs the shop and app integration.</span><LocalQr value={voucherUrl} label="Demo voucher" /></div>
       </div>}
-      <small className="prototype-note">Rotates by local time: commuter peak, lunch, after school, or all-day. No real shop partnership or offer is implied.</small>
+      <small className="prototype-note">Two sample ads rotate every 15 seconds. Offers follow the local-time slot; no real shop partnership or offer is implied.</small>
     </section>
   )
 }
