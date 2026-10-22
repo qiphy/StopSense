@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import LiveCameraCounter from './LiveCameraCounter'
-import { EhailingCompare, getOfferLinkDetails, ScreenSampleAd, ShopOfferCard, StopAlternativesQr } from './MobilityExtras'
+import { EhailingCompare, getOfferLinkDetails, ScreenSampleAd, ShopOfferCard } from './MobilityExtras'
 
 type CrowdLevel = 'Low' | 'Moderate' | 'High' | 'Unknown'
 type Reading = {
@@ -331,8 +331,7 @@ function StopScreen({ reading, arrivals }: { reading: Reading; arrivals: ReturnT
         </section>
         <div className="screen-info"><span><i className="screen-sun">☀</i> {reading.temperature_c.toFixed(1)}°C <small>Temperature</small></span><span><i className="screen-humidity">≈</i> {Math.round(reading.humidity_pct)}% <small>Humidity</small></span><span><i className="screen-crowd">♙</i> {reading.crowd_level} <small>Waiting crowd</small></span></div>
         <ScreenSampleAd stopId={reading.device_id} />
-        <StopAlternativesQr stopId={reading.device_id} />
-        <div className="screen-footer">Arrival estimates for demonstration · Ads, routes and QR destinations are sample only</div>
+        <div className="screen-footer">Arrival estimates for demonstration · Scan an ad QR to continue on your phone</div>
       </div>
       <div className="screen-notes"><span className="screen-note-icon">▣</span><div><strong>Designed for a quick glance</strong><p>Upcoming services are shown together for easy comparison. This view is a screen mock-up; arrival estimates are simulated.</p></div></div>
     </section>

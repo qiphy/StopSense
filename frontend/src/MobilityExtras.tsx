@@ -133,22 +133,33 @@ export function EhailingCompare({ disrupted = false, stopId }: { disrupted?: boo
 
 export function ScreenSampleAd({ stopId }: { stopId: string }) {
   const offer = useRotatingOffer()
-  const routeUrl = appLink('route', `${stopId}|${offer.id}`)
-  return <>
-    <aside className="screen-ad" aria-label="Time-based sample nearby shop advertisement">
-      <div className="screen-ad-copy"><span className="screen-ad-label">NEARBY SHOP · SAMPLE AD</span><strong>{offer.title}</strong><small>{offer.shop} · {offer.detail}</small></div>
-    </aside>
-    <div className="screen-shop-details" aria-label="Sample shop route and offer">
-      <div>
-        <strong>SHOP ROUTE · SAMPLE</strong>
-        <span>🚶 {offer.walk} · 🚌 {offer.route}</span>
-        <span>↓ Alight at {offer.alight}</span>
-        <span>Sample voucher: {offer.voucher}</span>
-        <small>Fictional offer and directions; verify the route before travelling. Voucher redemption is not connected.</small>
+  const [activeSlide, setActiveSlide] = useState(0)
+  const slides = [
+    { label: 'TIME-BASED SHOP OFFER · SAMPLE', title: offer.title, shop: offer.shop, detail: offer.detail, visual: '☕', qrLabel: 'Shop route', qrValue: appLink('route', `${stopId}|${offer.id}`), directions: [`🚶 ${offer.walk}`, `🚌 ${offer.route}`, `↓ Alight at ${offer.alight}`] },
+    { label: 'MORE TO EXPLORE · SAMPLE PROMO', title: 'A little extra for your journey', shop: 'Neighbourhood Market · sample partner', detail: 'Scan for a sample promo and shop details.', visual: '✦', qrLabel: 'Scan for promo', qrValue: appLink('voucher', 'WAYHOME'), directions: ['Sample promo: WAYHOME', 'Nearby stop essentials', 'Voucher redemption is not connected.'] },
+  ]
+  useEffect(() => {
+    const timer = window.setInterval(() => setActiveSlide((current) => (current + 1) % slides.length), 15000)
+    return () => window.clearInterval(timer)
+  }, [slides.length])
+  return (
+    <section className="screen-ad-carousel" aria-label="Rotating sample advertisements" aria-roledescription="carousel">
+      <div className="screen-ad-viewport">
+        <div className="screen-ad-track" style={{ transform: `translateX(-${activeSlide * 100}%)` }}>
+          {slides.map((slide, index) => (
+            <article className="screen-ad-slide" key={slide.label} aria-label={`Advertisement ${index + 1} of ${slides.length}`}>
+              <div className="screen-ad-art" aria-hidden="true"><span>{slide.visual}</span><small>StopSense<br />LOCAL PICKS</small></div>
+              <div className="screen-ad-copy"><span className="screen-ad-label">{slide.label}</span><strong>{slide.title}</strong><span>{slide.shop}</span><small>{slide.detail}</small></div>
+              <div className="screen-ad-route"><strong>{index === 0 ? 'ROUTE & OFFER' : 'SCAN FOR MORE'}</strong>{slide.directions.map((line) => <span key={line}>{line}</span>)}<small>Sample information only.</small></div>
+              <LocalQr value={slide.qrValue} label={slide.qrLabel} />
+            </article>
+          ))}
+        </div>
       </div>
-      <LocalQr value={routeUrl} label="Shop route & offer" />
-    </div>
-  </>
+      <div className="screen-ad-pagination" aria-hidden="true"><span>{activeSlide + 1} / {slides.length}</span><div>{slides.map((slide, index) => <i key={slide.label} className={activeSlide === index ? 'active' : ''} />)}</div><span>Changes every 15 sec</span></div>
+      <small className="screen-ad-disclaimer">Fictional sample ads, routes, and promotions. No partner or voucher redemption is connected.</small>
+    </section>
+  )
 }
 
 export function StopAlternativesQr({ stopId }: { stopId: string }) {
