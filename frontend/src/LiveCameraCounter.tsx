@@ -107,8 +107,12 @@ export default function LiveCameraCounter({ apiUrl, buses, selectedBusRoute, onB
       const devices = await navigator.mediaDevices.enumerateDevices()
       const cameras = devices.filter((device) => device.kind === 'videoinput').map((device, index) => ({ id: device.deviceId, label: device.label || `Camera ${index + 1}` }))
       setCameraDevices(cameras)
-      const activeCameraId = stream.getVideoTracks()[0]?.getSettings().deviceId ?? deviceId
+      const activeTrackSettings = stream.getVideoTracks()[0]?.getSettings()
+      const activeCameraId = activeTrackSettings?.deviceId ?? deviceId
       setSelectedCameraId(activeCameraId)
+      if (activeTrackSettings?.facingMode === 'user' || activeTrackSettings?.facingMode === 'environment') {
+        setCameraFacing(activeTrackSettings.facingMode)
+      }
       if (!videoRef.current) throw new Error('Camera preview is not available')
       videoRef.current.srcObject = stream
       await videoRef.current.play()
@@ -258,7 +262,7 @@ export default function LiveCameraCounter({ apiUrl, buses, selectedBusRoute, onB
         <label>Starting occupancy <input aria-label="Starting occupancy" type="number" min="0" step="1" value={initialOccupancy} disabled={state === 'active' || state === 'starting'} onChange={(event) => setInitialOccupancy(Math.max(0, Number(event.target.value) || 0))} /></label>
       </div>
       <div className="live-video-wrap">
-        <video ref={videoRef} autoPlay muted playsInline aria-label="Live webcam preview" />
+        <video ref={videoRef} className={cameraFacing === 'user' ? 'live-video-mirrored' : undefined} autoPlay muted playsInline aria-label="Live webcam preview" />
         {state !== 'active' && <div className="live-video-empty">{state === 'starting' ? 'Starting camera and detector…' : 'Camera is off'}</div>}
         {state === 'active' && <div className="live-count-line" style={{ top: `${LINE * 100}%` }}><span>COUNTING LINE</span></div>}
       </div>
