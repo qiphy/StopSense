@@ -1,4 +1,4 @@
-# StopSense bus-stop telemetry prototype
+# CoolStop bus-stop telemetry prototype
 
 A local prototype with a **React + TypeScript frontend**, FastAPI telemetry API, SQLite storage, and a simulated device:
 
@@ -81,7 +81,9 @@ The frontend opens a Server-Sent Events connection to `GET /events/telemetry`. T
 
 ### Simulated bus arrivals
 
-ETAs are generated in the frontend from example route headways, not live bus GPS. They are labelled simulated in all views. The bus-stop screen also includes a clearly marked sample e-hailing advertisement placeholder; its call to action is illustrative only. In the passenger app, a high crowd reading on the selected stop reveals a sample e-hailing alternative with illustrative pickup and fare values; it does not make a booking or fetch a live quote. For real arrivals, connect an authorized transit API or GTFS-Realtime feed and report its source and update time. Crowd level means people waiting at the stop, **not occupancy onboard a bus**.
+ETAs are generated in the frontend from example route headways, not live bus GPS. They are labelled simulated in all views. Passenger view includes a time-based sample nearby-shop offer, expandable shop details, sample walk/bus/alight directions, locally generated QR codes for demo voucher and route links, a location-permission prompt, sample disruption alternatives, and a comparison of fictional e-hailing providers. The stop screen shows a time-appropriate sample ad and QR links for shop details and journey alternatives. QR scans reopen the demo app and display a prototype notice; voucher redemption, map navigation and live service data are not integrated. No user location is stored or sent to the API; location access is only requested after the user presses the button. The demo does not use coordinates for routing: even after permission is granted, the sample alternatives are still based on the selected stop until an approved map/transit routing source is integrated.
+
+The disruption control is a local simulation, not a real disruption feed. Alternative bus routes, fare estimates, pickup ETAs and vehicle types are fictional examples. Selecting “continue” does not place an order or contact a provider. Public transport alternatives are shown first; real multi-provider quotes and booking require transit/map feeds and each e-hailing company’s agreement and API integration. Shop names/offers are also fictional and do not imply a partnership. For real arrivals, connect an authorized transit API or GTFS-Realtime feed and report its source and update time. Crowd level means people waiting at the stop, **not occupancy onboard a bus**.
 
 ## Shared ESP32/FastAPI payload
 

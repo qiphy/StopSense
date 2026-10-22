@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import LiveCameraCounter from './LiveCameraCounter'
+import { EhailingCompare, getOfferLinkDetails, ScreenSampleAd, ShopOfferCard, StopAlternativesQr } from './MobilityExtras'
 
 type CrowdLevel = 'Low' | 'Moderate' | 'High' | 'Unknown'
 type Reading = {
@@ -88,6 +89,25 @@ function App() {
   const [error, setError] = useState('')
   const [usingPreview, setUsingPreview] = useState(false)
   const [streamConnected, setStreamConnected] = useState(false)
+  const [appLinkNotice, setAppLinkNotice] = useState<{ kind: 'voucher' | 'route' | 'alternatives'; value: string } | null>(null)
+
+  useEffect(() => {
+    const readAppLink = () => {
+      const match = window.location.hash.match(/^#(voucher|route|alternatives)=(.*)$/)
+      if (!match) {
+        setAppLinkNotice(null)
+        return
+      }
+      try {
+        setAppLinkNotice({ kind: match[1] as 'voucher' | 'route' | 'alternatives', value: decodeURIComponent(match[2]) })
+      } catch {
+        setAppLinkNotice(null)
+      }
+    }
+    readAppLink()
+    window.addEventListener('hashchange', readAppLink)
+    return () => window.removeEventListener('hashchange', readAppLink)
+  }, [])
 
   useEffect(() => {
     let active = true
@@ -144,13 +164,15 @@ function App() {
   const handleCrowdEstimate = (route: string, estimate: BusCrowdEstimate) => {
     setBusCrowdEstimates((current) => ({ ...current, [route]: estimate }))
   }
+  const routeOfferId = appLinkNotice?.kind === 'route' ? appLinkNotice.value.split('|').pop() ?? '' : ''
+  const routeOffer = routeOfferId ? getOfferLinkDetails(routeOfferId) : null
 
   return (
     <div className="app-shell">
       <header className="topbar">
-        <a className="brand" href="#home" aria-label="StopSense home">
+        <a className="brand" href="#home" aria-label="CoolStop home">
           <span className="brand-mark">C</span>
-          <span>StopSense<span className="brand-dot">.</span><small>Township transit, made better</small></span>
+          <span>coolstop<span className="brand-dot">.</span><small>Township transit, made better</small></span>
         </a>
         <div className="topbar-right">
           <span className={`connection ${error ? 'connection-offline' : ''}`}><i />{error ? 'Preview mode' : 'Demo system'}</span>
@@ -172,6 +194,7 @@ function App() {
           <span className="notice-icon">{usingPreview ? '◷' : 'i'}</span>
           <span><strong>{usingPreview ? 'PREVIEW DATA' : 'DEMO MODE'}</strong> — stop readings are {usingPreview ? 'example values shown because the API has no data' : 'simulated by the software device simulator'}. Bus arrival times are generated from a sample timetable, not live GPS.{error && <small className="notice-error">API connection: {error}. Start FastAPI and simulator.py to load readings.</small>}</span>
         </div>
+        {appLinkNotice && <div className="app-link-notice" role="status"><span><strong>{appLinkNotice.kind === 'voucher' ? `Sample voucher ${appLinkNotice.value}` : appLinkNotice.kind === 'route' && routeOffer ? `Directions to ${routeOffer.shop}` : appLinkNotice.kind === 'route' ? 'Sample shop directions opened' : `Sample journey alternatives from ${appLinkNotice.value}`}</strong><small>{appLinkNotice.kind === 'voucher' ? 'This demo code is not redeemable; a real voucher needs a participating shop integration.' : appLinkNotice.kind === 'route' && routeOffer ? `${routeOffer.walk} · ${routeOffer.route} · alight ${routeOffer.alight}. Sample only; live maps are not connected.` : 'This QR opens a prototype link. Live maps, transit routes and service disruption data are not connected.'}</small></span><button type="button" onClick={() => { window.location.hash = 'home'; setAppLinkNotice(null) }}>Dismiss</button></div>}
 
         <nav className="view-switcher" aria-label="Choose dashboard view">
           <button className={view === 'passenger' ? 'active' : ''} onClick={() => setView('passenger')}><span>⌕</span> Passenger app</button>
@@ -194,7 +217,7 @@ function App() {
           </>
         )}
 
-        <footer className="footer"><span>StopSense · Bus stop cooling and transit information prototype</span><span>Crowd level is waiting-area estimate, not onboard occupancy.</span></footer>
+        <footer className="footer"><span>CoolStop · Bus stop cooling and transit information prototype</span><span>Crowd level is waiting-area estimate, not onboard occupancy.</span></footer>
       </main>
     </div>
   )
@@ -220,25 +243,15 @@ function PassengerView({ reading, arrivals, buses, selectedBusRoute, onBusChange
           <Condition icon="♙" label="Waiting crowd" value={reading.crowd_level} unit="" tone="green" detail="People at this stop" />
         </div>
         <div className="comfort-tip"><span>✦</span><span><strong>Cooling system {reading.cooler_on ? 'is running' : 'is on standby'}</strong><small>Comfort data last updated {formatTimestamp(reading.timestamp)}</small></span></div>
-        {reading.crowd_level === 'High' && <EhailAlternative stopId={reading.device_id} />}
       </article>
       <article className="bus-crowd-card">
         <div className="bus-crowd-heading"><div><span className="card-kicker">ONBOARD CROWD · CAMERA ESTIMATE</span><strong>{buses.find((bus) => bus.route === selectedBusRoute)?.destination ?? 'Selected bus'}</strong></div><label>Bus<select aria-label="Select bus for crowd estimate" value={selectedBusRoute} onChange={(event) => onBusChange(event.target.value)}>{buses.map((bus) => <option key={bus.route} value={bus.route}>{bus.route} · {bus.destination}</option>)}</select></label></div>
         {crowdEstimate ? <div className="bus-crowd-reading"><strong>{crowdEstimate.level}</strong><span>{crowdEstimate.active ? 'Live estimate' : 'Last estimate'} · {crowdEstimate.occupancy} people onboard</span><small>Camera crossing estimate · updated {formatTimestamp(crowdEstimate.observedAt)}</small></div> : <div className="bus-crowd-reading bus-crowd-inactive"><strong>Camera inactive</strong><span>Start webcam in Operations to estimate this bus's crowd level.</span></div>}
         <small className="bus-crowd-note">Demo thresholds: Low ≤10, Moderate 11–25, High &gt;25 tracked people. This is a prototype estimate, not verified bus occupancy.</small>
       </article>
+      <ShopOfferCard stopId={reading.device_id} />
+      <EhailingCompare stopId={reading.device_id} />
     </section>
-  )
-}
-
-function EhailAlternative({ stopId }: { stopId: string }) {
-  return (
-    <aside className="ehail-alternative" aria-label="Sample e-hailing alternative">
-      <div className="ehail-copy"><span className="simulated-tag">SAMPLE ALTERNATIVE</span><strong>Busy at {stopId}?</strong><span>Compare an e-hailing ride instead of waiting in the crowd.</span></div>
-      <div className="ehail-estimate"><strong>5 min</strong><span>sample pickup</span><strong>RM 8–12</strong><span>illustrative fare</span></div>
-      <span className="ehail-cta">VIEW SAMPLE RIDE ↗</span>
-      <small>Demo only · ETA and fare are not live quotes. No booking will be made.</small>
-    </aside>
   )
 }
 
@@ -291,7 +304,7 @@ function StopScreen({ reading, arrivals }: { reading: Reading; arrivals: ReturnT
   return (
     <section className="screen-wrap">
       <div className="screen-device">
-        <div className="screen-header"><span className="screen-logo">C</span><span>StopSense <small>SMART BUS STOP</small></span><span className="screen-clock">{new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span></div>
+        <div className="screen-header"><span className="screen-logo">C</span><span>COOLSTOP <small>SMART BUS STOP</small></span><span className="screen-clock">{new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span></div>
         <div className="screen-content-grid">
           <section className="screen-arrivals-panel" aria-label="Upcoming bus arrivals">
             <div className="screen-next-label">UPCOMING BUSES <span className="simulated-tag">SIMULATED</span></div>
@@ -317,11 +330,9 @@ function StopScreen({ reading, arrivals }: { reading: Reading; arrivals: ReturnT
             <small className="screen-energy-note">kWh/day · illustrative reference values. Display wattage not separately specified.</small>
         </section>
         <div className="screen-info"><span><i className="screen-sun">☀</i> {reading.temperature_c.toFixed(1)}°C <small>Temperature</small></span><span><i className="screen-humidity">≈</i> {Math.round(reading.humidity_pct)}% <small>Humidity</small></span><span><i className="screen-crowd">♙</i> {reading.crowd_level} <small>Waiting crowd</small></span></div>
-        <aside className="screen-ad" aria-label="Sample e-hailing advertisement">
-          <div className="screen-ad-copy"><span className="screen-ad-label">ADVERTISEMENT · SAMPLE</span><strong>Your next ride, on demand.</strong><small>Continue your journey with an e-hailing ride.</small></div>
-          <span className="screen-ad-cta">BOOK A RIDE <b>↗</b></span>
-        </aside>
-        <div className="screen-footer">Arrival estimates for demonstration · Not connected to live bus GPS</div>
+        <ScreenSampleAd stopId={reading.device_id} />
+        <StopAlternativesQr stopId={reading.device_id} />
+        <div className="screen-footer">Arrival estimates for demonstration · Ads, routes and QR destinations are sample only</div>
       </div>
       <div className="screen-notes"><span className="screen-note-icon">▣</span><div><strong>Designed for a quick glance</strong><p>Upcoming services are shown together for easy comparison. This view is a screen mock-up; arrival estimates are simulated.</p></div></div>
     </section>
