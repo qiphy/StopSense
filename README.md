@@ -110,9 +110,9 @@ For real deployment, only report a stop crowd level from a verified source (for 
 
 ### Local doorway passenger counter (boarding/alighting/occupancy)
 
-The Operations view keeps the StopSense dashboard and telemetry intact and provides setup instructions for the local Python counter. Detection and tracking use Ultralytics YOLOv8n and ByteTrack on the camera host; the browser does not capture video or run a separate detector. Only aggregate reports are posted to `POST /passenger-counts`, and the latest report for each camera appears in Operations. The optional `bus_route` field associates a camera report with a sample route and is retained by the API.
+The Operations view keeps the StopSense dashboard and telemetry intact. It offers the original browser webcam counter using TensorFlow.js COCO-SSD (`lite_mobilenet_v2`), with local person detection and tracking; this path does not use YOLO. Camera video stays in the browser and only aggregate reports are posted to `POST /passenger-counts`. The browser counter requires a secure page (HTTPS or localhost) and camera permission. Choose a bus route in the controls; reports are associated with that route and appear in Operations.
 
-On the computer connected to the camera, install the optional camera dependencies from the StopSense project root:
+A separate optional Python counter is available for a camera host and uses Ultralytics YOLOv8n + ByteTrack. It can be used instead of the browser counter; it is not loaded or run by the browser. On the computer connected to the camera, install the optional camera dependencies from the StopSense project root:
 
 ```bash
 python -m pip install -r requirements-camera.txt

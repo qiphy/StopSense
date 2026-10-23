@@ -281,9 +281,9 @@ function PassengerFlow({ reports, buses, selectedBusRoute, onBusChange }: { repo
         <div><span className="card-kicker">ONBOARD PASSENGER FLOW</span><h2 id="passenger-flow-title">Doorway counter reports</h2></div>
         <span className="flow-separation-note">Separate from people waiting at the stop</span>
       </div>
-      <LiveCameraCounter buses={buses} selectedBusRoute={selectedBusRoute} onBusChange={onBusChange} />
+      <LiveCameraCounter apiUrl={API} buses={buses} selectedBusRoute={selectedBusRoute} onBusChange={onBusChange} />
       {reports.length === 0 ? (
-        <div className="flow-empty">No doorway counter reports yet. Start the local Python counter on the camera host to publish counts.</div>
+        <div className="flow-empty">No doorway counter reports yet. Start the browser webcam counter above or the optional Python counter on the camera host.</div>
       ) : (
         <div className="flow-camera-list">
           {reports.map((report) => {
@@ -307,7 +307,7 @@ function PassengerFlow({ reports, buses, selectedBusRoute, onBusChange }: { repo
           })}
         </div>
       )}
-      <p className="flow-disclaimer">YOLO person detections are tracked locally with ByteTrack. Boarding, alighting, and occupancy are estimates from people crossing the configured bus-door line, not a count of people waiting at the stop. Occupancy starts at the configured initial count and does not change when a track merely disappears. Confidence is a detector score, not a calibrated accuracy guarantee.</p>
+      <p className="flow-disclaimer">The browser counter uses COCO-SSD with local browser-side tracking; the optional Python counter uses YOLO with ByteTrack. Boarding, alighting, and occupancy are estimates from people crossing the configured bus-door line, not a count of people waiting at the stop. Occupancy starts at the configured initial count and does not change when a track merely disappears. Confidence is a detector score, not a calibrated accuracy guarantee.</p>
     </section>
   )
 }
