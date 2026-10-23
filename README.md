@@ -106,111 +106,44 @@ The simulator sends this schema to `POST /telemetry`; a future ESP32 can send th
 
 The API validates values and returns HTTP `201` for accepted data or `422` for invalid fields. `crowd_level` accepts `Low`, `Moderate`, `High`, or `Unknown`; `crowd_source` identifies `simulated`, `manual`, `sensor`, `operator`, or `unknown` data; omitted sources default to `unknown`. Read recent records at `GET /telemetry?limit=200`; filter by device with `GET /telemetry?device_id=stop-01`.
 
-For real deployment, only report a stop crowd level from a verified source (for example manual observation or an approved people-counting sensor), with a timestamp and source label. GPS on buses does not provide occupancy. Onboard bus crowding would need RapidKL passenger-count data or an approved onboard counting system; this demo does not estimate it.
+For real deployment, only report a stop crowd level from a verified source (for example manual observation or an approved people-counting sensor), with a timestamp and source label. GPS on buses does not provide occupancy. The local doorway counter below estimates onboard occupancy from observed crossings; it does not measure the waiting crowd and is not a substitute for a validated passenger-counting system.
 
-### Doorway passenger counter (boarding/alighting/occupancy)
+### Local doorway passenger counter (boarding/alighting/occupancy)
 
-The Operations view includes a **Start webcam** control. After the operator
-clicks it and grants browser permission, the browser captures video and runs a
-person detector locally. It estimates boarding/alighting and occupancy from
-tracked people crossing the displayed horizontal line. Choose which vertical
-direction means entering and set a starting occupancy before starting. The
-video frames stay in the browser and are never sent to the API; only aggregate
-counts are posted to `POST /passenger-counts`. Camera access requires HTTPS or
-`localhost`. The detector model is loaded on first use, so an internet
-connection is needed to load it.
+The Operations view keeps the StopSense dashboard and telemetry intact and provides setup instructions for the local Python counter. Detection and tracking use Ultralytics YOLOv8n and ByteTrack on the camera host; the browser does not capture video or run a separate detector. Only aggregate reports are posted to `POST /passenger-counts`, and the latest report for each camera appears in Operations. The optional `bus_route` field associates a camera report with a sample route and is retained by the API.
 
-The browser counter increments occupancy on an entering crossing and decrements
-it on the reverse crossing (clamped at zero). A person disappearing from the
-frame is not treated as an exit, since occlusion or a dropped track can cause
-false exits. Occupancy is an estimate from observed crossings, not a direct
-count of everyone currently onboard. It defaults to zero; set the starting
-occupancy before activation if the monitored area is not empty. The browser
-tracker is a lightweight prototype and can mis-associate people in dense scenes
-or after occlusion; validate it at the actual camera angle before relying on it.
-
-An alternative local Python counter is provided in `bus_counter.py`; it uses
-OpenCV and Ultralytics, and has its own `--initial-occupancy` argument. Its
-frames also stay on the host and are never uploaded. Do not run both counters
-against the same webcam at once, as the camera may not support simultaneous
-access. These camera counts are separate from `crowd_level`, which means people
-waiting at the bus stop. The React Operations view shows each camera's boarding,
-alighting, estimated occupancy, status, confidence, and update time. The live
-camera preview appears in this view only while the operator has started it.
-
-The Operations camera controls let the operator associate the current crossing
-counter with a sample bus route and cycle among routes. Passenger view shows
-only the selected bus's crowd level (Low, Moderate, or High), without camera
-controls, video, or a raw occupancy count. Bus crowd levels are derived from the
-counter's starting occupancy plus tracked doorway crossings; they are not a
-direct view of all passengers inside the bus. The demonstration thresholds are
-Low (0–10), Moderate (11–25), and High (26+), and are not validated capacity
-limits. These route estimates are separate from stop waiting-area crowd
-telemetry.
-
-Where the browser exposes multiple video inputs, the camera selector can choose
-one directly and the front/back control requests the user-facing or
-environment-facing camera. Camera availability depends on device, browser, and
-permissions; a one-camera device cannot switch between physical cameras.
-
-The API accepts this aggregate payload at `POST /passenger-counts` and keeps the
-latest report per camera in a dedicated SQLite table; it does not alter the
-existing `/telemetry` schema. `occupancy_count` is nullable for older counter
-clients. Retrieve reports with `GET /passenger-counts` or filter with
-`GET /passenger-counts?camera_id=bus-door-01`:
-
-```json
-{
-  "camera_id": "bus-door-01",
-  "observed_at": "2026-10-21T00:00:00+00:00",
-  "boarding_count": 3,
-  "alighting_count": 1,
-  "occupancy_count": 12,
-  "confidence": 0.82,
-  "status": "ok"
-}
-```
-
-Install optional camera dependencies (the default YOLO model weights download
-on first run; pass a local model path to avoid that):
+On the computer connected to the camera, install the optional camera dependencies from the StopSense project root:
 
 ```bash
-python -m pip install opencv-python ultralytics
+python -m pip install -r requirements-camera.txt
 ```
 
-Run after starting FastAPI, using the default webcam:
+Start FastAPI in one terminal:
 
 ```bash
-python bus_counter.py --source 0 --camera-id bus-door-01 --axis y --line 0.55 --in-direction down
+uvicorn main:app --reload
 ```
 
-Use `--source path/to/video.mp4` for a recorded test or `--source URL` for a
-camera stream. For a side-on view, use `--axis x --in-direction right`; switch
-`right`/`down` to `left`/`up` if your camera orientation is reversed. Adjust
-`--line` to position the virtual line. Configure the detector with `--model`
-and `--confidence`, and tracking with `--tracker`; set `--hysteresis` to add a
-dead-band against line jitter. Use `--initial-occupancy N` to seed a non-empty
-monitored area at startup (the default is zero). `--api-url ""` disables
-publishing, and `--no-display` runs headlessly. `PASSENGER_COUNT_API_URL`,
-`PASSENGER_CAMERA_ID`, and `PASSENGER_MODEL` can also configure these values.
-The API replaces each camera's latest aggregate, while the camera's boarding,
-alighting, and occupancy values are cumulative/estimated for that counter
-process. Status changes to offline at stream end and the UI marks an otherwise-ok
-report stale after 30 seconds. Confidence is the mean model score for counted
-crossings, not calibrated counting accuracy.
+In a second terminal on that host, run the counter (choose the route in the Operations setup panel and pass the same route here):
 
-Validate the line counter without a camera or optional CV packages:
+```bash
+python bus_counter.py --source 0 --camera-id bus-door-01 --bus-route T1 --axis y --line 0.55 --in-direction down
+```
+
+For a side-on view, use `--axis x --in-direction right`; change the direction if necessary and validate it with a short test. Adjust `--line` to the camera view. Use `--source path/to/video.mp4` for a recorded test or `--source URL` for a camera stream. Configure the model with `--model` (default `yolov8n.pt`), detection threshold with `--confidence`, tracker with `--tracker` (default `bytetrack.yaml`), and line-jitter tolerance with `--hysteresis`. The model weights download on first run unless a local model path is supplied. Set `--initial-occupancy N` to seed an area that is not empty. Crossing safeguards can be tuned with `--min-displacement`, `--min-track-frames`, and `--crossing-cooldown`. `--api-url ""` disables publishing and `--no-display` runs headlessly. `PASSENGER_COUNT_API_URL`, `PASSENGER_CAMERA_ID`, `PASSENGER_BUS_ROUTE`, and `PASSENGER_MODEL` can also configure these values.
+
+Frames are processed locally and never uploaded. The API stores the latest aggregate report per camera; boarding, alighting, and occupancy values are cumulative/estimated for that counter process. Reports marked `ok` are shown as stale after 30 seconds without an update. Detector confidence is the mean model score for counted crossings, not calibrated counting accuracy. The passenger view may display the latest route-associated onboard occupancy estimate; it is not an estimate of the people waiting at the stop and does not account for people already onboard unless the initial occupancy is set appropriately.
+
+Stop waiting-area crowd telemetry remains its own data path (`crowd_level`/`crowd_source`) and must come from an appropriate stop-side source. Bus doorway crossings do not measure people waiting at the stop, and occupancy can drift due to missed detections, track swaps, or unobserved entry/exit. This is a prototype, not certified passenger-counting equipment. Validate and tune the model, line, direction, and tracking on the actual camera angle; only use camera footage with operator approval, appropriate notices/consent, and a privacy review. Do not use facial recognition or retain identifiable footage.
+
+The API accepts aggregate reports at `POST /passenger-counts`; `occupancy_count` remains nullable for older counter clients, and `bus_route` is optional. Retrieve reports with `GET /passenger-counts` or filter with `GET /passenger-counts?camera_id=bus-door-01`.
+
+Validate crossing logic without a camera or optional CV packages:
 
 ```bash
 python bus_counter.py --self-test
 python -m unittest test_passenger_counts.py
 ```
-
-This is a prototype, not certified passenger-counting equipment. Validate and
-tune the model, line, direction, and tracking on the actual camera angle;
-occlusion, dense crowds, and track swaps can cause errors. Only use camera
-footage with operator approval, appropriate notices/consent, and a privacy
-review; do not use facial recognition or retain identifiable footage.
 
 By default, the SQLite file is `telemetry.db` in the current directory. Set `TELEMETRY_DB` to change its path.
 

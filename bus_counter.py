@@ -20,19 +20,32 @@ from urllib.request import Request, urlopen
 class TrackState:
     side: int
     last_seen: float
+    start_coordinate: float
+    observations: int = 1
+    last_crossing: float | None = None
 
 
 class LineCrossingCounter:
     """Estimate occupancy from tracked people crossing a virtual boundary."""
 
     def __init__(self, line: float, axis: Literal["x", "y"], in_direction: str, hysteresis: float = 12.0,
-                 initial_occupancy: int = 0):
+                 initial_occupancy: int = 0, min_displacement: float = 30.0,
+                 min_track_frames: int = 3, crossing_cooldown: float = 0.75):
         if initial_occupancy < 0:
             raise ValueError("initial_occupancy cannot be negative")
         self.line = line
         self.axis = axis
         self.in_direction = in_direction
+        if min_displacement < 0:
+            raise ValueError("min_displacement cannot be negative")
+        if min_track_frames < 1:
+            raise ValueError("min_track_frames must be positive")
+        if crossing_cooldown < 0:
+            raise ValueError("crossing_cooldown cannot be negative")
         self.hysteresis = hysteresis
+        self.min_displacement = min_displacement
+        self.min_track_frames = min_track_frames
+        self.crossing_cooldown = crossing_cooldown
         self.tracks: dict[int, TrackState] = {}
         self.boardings = 0
         self.alightings = 0
@@ -61,14 +74,24 @@ class LineCrossingCounter:
         previous = self.tracks.get(track_id)
         if previous is None:
             if side:
-                self.tracks[track_id] = TrackState(side=side, last_seen=now)
+                self.tracks[track_id] = TrackState(side=side, last_seen=now, start_coordinate=coordinate)
             return None
 
         previous.last_seen = now
+        previous.observations += 1
         if not side or side == previous.side:
+            return None
+        if previous.observations < self.min_track_frames:
+            return None
+        if abs(coordinate - previous.start_coordinate) < self.min_displacement:
+            return None
+        if previous.last_crossing is not None and now - previous.last_crossing < self.crossing_cooldown:
             return None
 
         previous.side = side
+        previous.start_coordinate = coordinate
+        previous.last_crossing = now
+        previous.observations = 0
         self._crossing_confidence_sum += min(1.0, max(0.0, confidence))
         self._crossing_count += 1
 
@@ -83,9 +106,11 @@ class LineCrossingCounter:
         return "alighting"
 
 
-def payload(counter: LineCrossingCounter, camera_id: str, status: str) -> dict[str, object]:
+def payload(counter: LineCrossingCounter, camera_id: str, status: str,
+            bus_route: str | None = None) -> dict[str, object]:
     return {
         "camera_id": camera_id,
+        "bus_route": bus_route or None,
         "observed_at": datetime.now(timezone.utc).isoformat(),
         "boarding_count": counter.boardings,
         "alighting_count": counter.alightings,
@@ -115,10 +140,18 @@ def publish(api_url: str, report: dict[str, object]) -> None:
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Estimate people crossing into and out of a monitored camera area.")
     parser.add_argument("--source", default="0", help="Camera index, video file, or stream URL (default: 0)")
-    parser.add_argument("--model", default=os.environ.get("PASSENGER_MODEL", "yolo11n.pt"),
-                        help="Local Ultralytics model path or model name (default yolo11n.pt)")
+    parser.add_argument("--model", default=os.environ.get("PASSENGER_MODEL", "yolov8n.pt"),
+                        help="Local Ultralytics model path or model name (default yolov8n.pt)")
     parser.add_argument("--tracker", default="bytetrack.yaml",
                         help="Ultralytics tracker config path/name (default bytetrack.yaml)")
+    parser.add_argument("--bus-route", default=os.environ.get("PASSENGER_BUS_ROUTE", ""),
+                        help="Optional bus route label for this doorway counter")
+    parser.add_argument("--min-displacement", type=float, default=30,
+                        help="Minimum tracked movement across the tripwire, in pixels")
+    parser.add_argument("--min-track-frames", type=int, default=3,
+                        help="Minimum observations per track before counting a crossing")
+    parser.add_argument("--crossing-cooldown", type=float, default=0.75,
+                        help="Minimum seconds between crossings from one track")
     parser.add_argument("--confidence", type=float, default=0.25,
                         help="Minimum person detection confidence from 0 to 1")
     parser.add_argument("--api-url", default=os.environ.get("PASSENGER_COUNT_API_URL", "http://127.0.0.1:8000"),
@@ -146,12 +179,16 @@ def parse_args() -> argparse.Namespace:
         parser.error("--hysteresis cannot be negative")
     if args.initial_occupancy < 0:
         parser.error("--initial-occupancy cannot be negative")
+    if args.min_displacement < 0 or args.min_track_frames < 1 or args.crossing_cooldown < 0:
+        parser.error("crossing safeguards must be non-negative and min-track-frames must be positive")
     if not 0 <= args.confidence <= 1:
         parser.error("--confidence must be between 0 and 1")
     if args.publish_interval <= 0:
         parser.error("--publish-interval must be positive")
     if args.in_direction not in ({"left", "right"} if args.axis == "x" else {"up", "down"}):
         parser.error("--in-direction must match --axis (left/right for x, up/down for y)")
+    if len(args.bus_route) > 32:
+        parser.error("--bus-route must be 32 characters or fewer")
     return args
 
 
@@ -159,11 +196,12 @@ def main() -> None:
     args = parse_args()
     if args.self_test:
         counter = LineCrossingCounter(0.55, "y", "down", hysteresis=5, initial_occupancy=2)
-        counter.update(1, 50, 30, 100, 100, confidence=0.8)
-        counter.update(1, 50, 70, 100, 100, confidence=0.9)
-        counter.update(1, 50, 85, 100, 100, confidence=0.9)
-        counter.update(2, 50, 80, 100, 100, confidence=0.85)
-        counter.update(2, 50, 30, 100, 100, confidence=0.85)
+        counter.update(1, 50, 30, 100, 100, confidence=0.8, now=0)
+        counter.update(1, 50, 50, 100, 100, confidence=0.9, now=0.1)
+        counter.update(1, 50, 70, 100, 100, confidence=0.9, now=0.2)
+        counter.update(2, 50, 80, 100, 100, confidence=0.85, now=1)
+        counter.update(2, 50, 60, 100, 100, confidence=0.85, now=1.1)
+        counter.update(2, 50, 30, 100, 100, confidence=0.85, now=1.8)
         result = {
             "boarding_count": counter.boardings,
             "alighting_count": counter.alightings,
@@ -191,6 +229,9 @@ def main() -> None:
     counter = LineCrossingCounter(
         args.line, args.axis, args.in_direction, args.hysteresis,
         initial_occupancy=args.initial_occupancy,
+        min_displacement=args.min_displacement,
+        min_track_frames=args.min_track_frames,
+        crossing_cooldown=args.crossing_cooldown,
     )
     last_publish = 0.0
     status = "ok"
@@ -226,7 +267,7 @@ def main() -> None:
 
             now = time.monotonic()
             if args.api_url and now - last_publish >= args.publish_interval:
-                publish(args.api_url, payload(counter, args.camera_id, status))
+                publish(args.api_url, payload(counter, args.camera_id, status, args.bus_route))
                 last_publish = now
 
             if args.axis == "y":
@@ -252,7 +293,7 @@ def main() -> None:
         capture.release()
         if not args.no_display:
             cv2.destroyAllWindows()
-        publish(args.api_url, payload(counter, args.camera_id, status))
+        publish(args.api_url, payload(counter, args.camera_id, status, args.bus_route))
     print(f"Final totals: boardings={counter.boardings}, alightings={counter.alightings}")
 
 

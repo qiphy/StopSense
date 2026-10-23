@@ -28,6 +28,7 @@ class PassengerCountApiTests(unittest.TestCase):
     def test_latest_camera_counts_are_upserted_and_separate_from_waiting_crowd(self):
         report = {
             "camera_id": "bus-door-01",
+            "bus_route": "T1",
             "observed_at": "2026-10-21T00:00:00+00:00",
             "boarding_count": 4,
             "alighting_count": 2,
@@ -45,6 +46,7 @@ class PassengerCountApiTests(unittest.TestCase):
         self.assertEqual(listing[0]["alighting_count"], 2)
         self.assertEqual(listing[0]["occupancy_count"], 7)
         self.assertEqual(listing[0]["confidence"], 0.84)
+        self.assertEqual(listing[0]["bus_route"], "T1")
         self.assertNotIn("crowd_level", listing[0])
         routes = [route for route in main.app.routes if route.path == "/passenger-counts"]
         self.assertEqual({method for route in routes for method in route.methods}, {"GET", "POST"})
@@ -96,6 +98,7 @@ class PassengerCountApiTests(unittest.TestCase):
         with sqlite3.connect(self.db_path) as connection:
             columns = {row[1] for row in connection.execute("PRAGMA table_info(passenger_counts)")}
         self.assertIn("occupancy_count", columns)
+        self.assertIn("bus_route", columns)
 
     def test_invalid_counts_and_confidence_are_rejected(self):
         with self.assertRaises(ValidationError):
@@ -127,7 +130,8 @@ class PassengerCountApiTests(unittest.TestCase):
 
 class LineCrossingTests(unittest.TestCase):
     def test_occupancy_increments_and_decrements_on_each_boundary_crossing(self):
-        counter = LineCrossingCounter(0.5, "x", "right", hysteresis=5, initial_occupancy=3)
+        counter = LineCrossingCounter(0.5, "x", "right", hysteresis=5, initial_occupancy=3,
+                                      min_displacement=0, min_track_frames=1, crossing_cooldown=0)
         counter.update(1, 30, 50, 100, 100)
         self.assertEqual(counter.update(1, 70, 50, 100, 100), "boarding")
         self.assertEqual(counter.occupancy_count, 4)
@@ -135,13 +139,35 @@ class LineCrossingTests(unittest.TestCase):
         self.assertEqual(counter.occupancy_count, 3)
 
     def test_occupancy_never_drops_below_zero(self):
-        counter = LineCrossingCounter(0.5, "x", "right", hysteresis=5)
+        counter = LineCrossingCounter(0.5, "x", "right", hysteresis=5,
+                                      min_displacement=0, min_track_frames=1, crossing_cooldown=0)
         counter.update(1, 70, 50, 100, 100)
         self.assertEqual(counter.update(1, 30, 50, 100, 100), "alighting")
         self.assertEqual(counter.occupancy_count, 0)
 
+    def test_crossing_requires_minimum_observations_and_displacement(self):
+        counter = LineCrossingCounter(0.5, "x", "right", hysteresis=5,
+                                      min_displacement=30, min_track_frames=3, crossing_cooldown=0)
+        self.assertIsNone(counter.update(1, 40, 50, 100, 100, now=0))
+        self.assertIsNone(counter.update(1, 52, 50, 100, 100, now=0.1))
+        self.assertIsNone(counter.update(1, 58, 50, 100, 100, now=0.2))
+        self.assertIsNone(counter.update(1, 65, 50, 100, 100, now=0.3))
+        self.assertEqual(counter.boardings, 0)
+        self.assertEqual(counter.update(1, 75, 50, 100, 100, now=0.4), "boarding")
+        self.assertEqual(counter.boardings, 1)
+
+    def test_same_track_cannot_count_again_during_crossing_cooldown(self):
+        counter = LineCrossingCounter(0.5, "x", "right", hysteresis=5,
+                                      min_displacement=0, min_track_frames=1, crossing_cooldown=0.75)
+        counter.update(1, 40, 50, 100, 100, now=0)
+        self.assertEqual(counter.update(1, 60, 50, 100, 100, now=1), "boarding")
+        self.assertIsNone(counter.update(1, 40, 50, 100, 100, now=1.1))
+        self.assertEqual(counter.boardings, 1)
+        self.assertEqual(counter.update(1, 40, 50, 100, 100, now=1.8), "alighting")
+
     def test_counts_line_crossings_and_emits_confidence_payload(self):
-        counter = LineCrossingCounter(0.55, "y", "down", hysteresis=5)
+        counter = LineCrossingCounter(0.55, "y", "down", hysteresis=5,
+                                      min_displacement=0, min_track_frames=1, crossing_cooldown=0)
         self.assertIsNone(counter.update(1, 50, 30, 100, 100, confidence=0.8))
         self.assertEqual(counter.update(1, 50, 70, 100, 100, confidence=0.9), "boarding")
         self.assertIsNone(counter.update(1, 50, 85, 100, 100, confidence=0.9))
@@ -149,9 +175,10 @@ class LineCrossingTests(unittest.TestCase):
         self.assertEqual(counter.update(2, 50, 30, 100, 100, confidence=0.85), "alighting")
         self.assertEqual(counter.boardings, 1)
         self.assertEqual(counter.alightings, 1)
-        result = payload(counter, "door-1", "ok")
+        result = payload(counter, "door-1", "ok", "T1")
         self.assertEqual(result["confidence"], 0.875)
         self.assertEqual(result["status"], "ok")
+        self.assertEqual(result["bus_route"], "T1")
 
 
 if __name__ == "__main__":

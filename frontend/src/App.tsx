@@ -18,6 +18,7 @@ type Reading = {
 }
 type PassengerCount = {
   camera_id: string
+  bus_route?: string | null
   observed_at: string
   boarding_count: number
   alighting_count: number
@@ -27,7 +28,6 @@ type PassengerCount = {
 }
 type View = 'passenger' | 'screen' | 'operations'
 type Route = { route: string; destination: string; headway: number; offset: number }
-type BusCrowdEstimate = { occupancy: number; level: 'Low' | 'Moderate' | 'High'; observedAt: string; active: boolean }
 
 const API = import.meta.env.VITE_API_URL || '/api'
 const routes: Route[] = [
@@ -82,7 +82,6 @@ function App() {
   const [passengerCounts, setPassengerCounts] = useState<PassengerCount[]>([])
   const [selectedStop, setSelectedStop] = useState('')
   const [selectedBusRoute, setSelectedBusRoute] = useState(routes[0].route)
-  const [busCrowdEstimates, setBusCrowdEstimates] = useState<Record<string, BusCrowdEstimate>>({})
   const [view, setView] = useState<View>('passenger')
   const [theme, setTheme] = useState<'light' | 'dark'>(() => {
     try {
@@ -179,9 +178,6 @@ function App() {
 
   const reading = latest.find((item) => item.device_id === selectedStop) ?? latest[0]
   const arrivals = reading ? getArrivals(reading.device_id, now) : []
-  const handleCrowdEstimate = (route: string, estimate: BusCrowdEstimate) => {
-    setBusCrowdEstimates((current) => ({ ...current, [route]: estimate }))
-  }
   const routeOfferId = appLinkNotice?.kind === 'route' ? appLinkNotice.value.split('|').pop() ?? '' : ''
   const routeOffer = routeOfferId ? getOfferLinkDetails(routeOfferId) : null
 
@@ -228,11 +224,11 @@ function App() {
               <label className="select-wrap"><span className="sr-only">Select bus stop</span><select value={reading.device_id} onChange={(event) => setSelectedStop(event.target.value)}>{latest.map((item) => <option key={item.device_id} value={item.device_id}>{item.device_id}</option>)}</select><span className="select-chevron">⌄</span></label>
             </div>
 
-            {view === 'passenger' && <PassengerView reading={reading} arrivals={arrivals} buses={routes} selectedBusRoute={selectedBusRoute} onBusChange={setSelectedBusRoute} crowdEstimate={busCrowdEstimates[selectedBusRoute]} />}
+            {view === 'passenger' && <PassengerView reading={reading} arrivals={arrivals} buses={routes} selectedBusRoute={selectedBusRoute} onBusChange={setSelectedBusRoute} report={passengerCounts.filter((report) => report.bus_route === selectedBusRoute).sort((a, b) => b.observed_at.localeCompare(a.observed_at))[0]} />}
             {view === 'screen' && <StopScreen reading={reading} arrivals={arrivals} />}
             {view === 'operations' && <OperationsView readings={latest} reading={reading} arrivals={arrivals} />}
             {view !== 'screen' && <SolarGeneration />}
-            {view === 'operations' && <PassengerFlow reports={passengerCounts} buses={routes} selectedBusRoute={selectedBusRoute} onBusChange={setSelectedBusRoute} onCrowdEstimate={handleCrowdEstimate} crowdEstimates={busCrowdEstimates} />}
+            {view === 'operations' && <PassengerFlow reports={passengerCounts} buses={routes} selectedBusRoute={selectedBusRoute} onBusChange={setSelectedBusRoute} />}
           </>
         )}
 
@@ -242,7 +238,7 @@ function App() {
   )
 }
 
-function PassengerView({ reading, arrivals, buses, selectedBusRoute, onBusChange, crowdEstimate }: { reading: Reading; arrivals: ReturnType<typeof getArrivals>; buses: Route[]; selectedBusRoute: string; onBusChange: (route: string) => void; crowdEstimate?: BusCrowdEstimate }) {
+function PassengerView({ reading, arrivals, buses, selectedBusRoute, onBusChange, report }: { reading: Reading; arrivals: ReturnType<typeof getArrivals>; buses: Route[]; selectedBusRoute: string; onBusChange: (route: string) => void; report?: PassengerCount }) {
   const nextBus = arrivals[0]
   return (
     <section className="passenger-grid">
@@ -264,9 +260,9 @@ function PassengerView({ reading, arrivals, buses, selectedBusRoute, onBusChange
         <div className="comfort-tip"><span>✦</span><span><strong>Cooling system {reading.cooler_on ? 'is running' : 'is on standby'}</strong><small>Comfort data last updated {formatTimestamp(reading.timestamp)}</small></span></div>
       </article>
       <article className="bus-crowd-card">
-        <div className="bus-crowd-heading"><div><span className="card-kicker">ONBOARD CROWD LEVEL</span><strong>{buses.find((bus) => bus.route === selectedBusRoute)?.destination ?? 'Selected bus'}</strong></div><label>Bus<select aria-label="Select bus for crowd level" value={selectedBusRoute} onChange={(event) => onBusChange(event.target.value)}>{buses.map((bus) => <option key={bus.route} value={bus.route}>{bus.route} · {bus.destination}</option>)}</select></label></div>
-        {crowdEstimate ? <div className={`bus-crowd-reading crowd-${crowdEstimate.level.toLowerCase()}`}><strong>{crowdEstimate.level}</strong><span>{crowdEstimate.active ? 'Current crowd level' : 'Last crowd level'} · updated {formatTimestamp(crowdEstimate.observedAt)}</span></div> : <div className="bus-crowd-reading bus-crowd-inactive"><strong>Unavailable</strong><span>No crowd level estimate is available for this bus yet.</span></div>}
-        <small className="bus-crowd-note">Prototype crowd bands: Low ≤10, Moderate 11–25, High &gt;25 people. These are not verified capacity limits.</small>
+        <div className="bus-crowd-heading"><div><span className="card-kicker">DOORWAY-BASED ONBOARD ESTIMATE</span><strong>{buses.find((bus) => bus.route === selectedBusRoute)?.destination ?? 'Selected bus'}</strong></div><label>Bus<select aria-label="Select bus for onboard estimate" value={selectedBusRoute} onChange={(event) => onBusChange(event.target.value)}>{buses.map((bus) => <option key={bus.route} value={bus.route}>{bus.route} · {bus.destination}</option>)}</select></label></div>
+        {report && report.occupancy_count !== null ? <div className="bus-crowd-reading"><strong>{report.occupancy_count} estimated onboard</strong><span>{report.status === 'ok' ? 'Latest counter report' : `Counter ${report.status}`} · updated {formatTimestamp(report.observed_at)}</span></div> : <div className="bus-crowd-reading bus-crowd-inactive"><strong>Unavailable</strong><span>No doorway counter report is associated with this route yet.</span></div>}
+        <small className="bus-crowd-note">This estimates occupancy from the counter's starting count and observed doorway crossings. It does not count everyone waiting at the stop or account for people already onboard unless initialized.</small>
       </article>
       <ShopOfferCard stopId={reading.device_id} />
       <EhailingCompare stopId={reading.device_id} />
@@ -278,20 +274,16 @@ function Condition({ icon, label, value, unit, tone, detail }: { icon: string; l
   return <div className="condition-item"><span className={`condition-icon ${tone}`}>{icon}</span><span className="condition-label">{label}</span><strong className="condition-value">{value}<small>{unit}</small></strong><span className="condition-detail">{detail}</span></div>
 }
 
-function PassengerFlow({ reports, buses, selectedBusRoute, onBusChange, onCrowdEstimate, crowdEstimates }: { reports: PassengerCount[]; buses: Route[]; selectedBusRoute: string; onBusChange: (route: string) => void; onCrowdEstimate: (route: string, estimate: BusCrowdEstimate) => void; crowdEstimates: Record<string, BusCrowdEstimate> }) {
+function PassengerFlow({ reports, buses, selectedBusRoute, onBusChange }: { reports: PassengerCount[]; buses: Route[]; selectedBusRoute: string; onBusChange: (route: string) => void }) {
   return (
     <section className="passenger-flow-panel" aria-labelledby="passenger-flow-title">
       <div className="passenger-flow-heading">
-        <div><span className="card-kicker">ONBOARD PASSENGER FLOW</span><h2 id="passenger-flow-title">Doorway camera counts</h2></div>
+        <div><span className="card-kicker">ONBOARD PASSENGER FLOW</span><h2 id="passenger-flow-title">Doorway counter reports</h2></div>
         <span className="flow-separation-note">Separate from people waiting at the stop</span>
       </div>
-      <div className="bus-crowd-operations">
-        <div className="bus-crowd-heading"><div><span className="card-kicker">BUS-SPECIFIC CROWD ESTIMATES</span><strong>Select a bus in the camera controls below</strong></div></div>
-        <div className="bus-crowd-list">{buses.map((bus) => { const estimate = crowdEstimates[bus.route]; return <div className={`bus-crowd-chip ${selectedBusRoute === bus.route ? 'selected' : ''}`} key={bus.route}><strong>{bus.route}</strong><span>{estimate ? `${estimate.level} · ${estimate.occupancy} people${estimate.active ? '' : ' · stopped'}` : 'No estimate yet'}</span></div> })}</div>
-      </div>
-      <LiveCameraCounter apiUrl={API} buses={buses} selectedBusRoute={selectedBusRoute} onBusChange={onBusChange} onCrowdEstimate={onCrowdEstimate} crowdEstimates={crowdEstimates} />
+      <LiveCameraCounter buses={buses} selectedBusRoute={selectedBusRoute} onBusChange={onBusChange} />
       {reports.length === 0 ? (
-        <div className="flow-empty">No doorway camera reports yet. Counts will appear when the local camera counter is running.</div>
+        <div className="flow-empty">No doorway counter reports yet. Start the local Python counter on the camera host to publish counts.</div>
       ) : (
         <div className="flow-camera-list">
           {reports.map((report) => {
@@ -302,6 +294,7 @@ function PassengerFlow({ reports, buses, selectedBusRoute, onBusChange, onCrowdE
             return (
               <article className="flow-camera" key={report.camera_id}>
                 <div className="flow-camera-title"><strong>{report.camera_id}</strong><span className={`flow-status flow-status-${status}`}>{status}</span></div>
+                <small className="flow-updated">Route {report.bus_route ?? 'not assigned'}</small>
                 <div className="flow-counts">
                   <div><span>Boarding</span><strong>{report.boarding_count}</strong></div>
                   <div><span>Alighting</span><strong>{report.alighting_count}</strong></div>
@@ -314,7 +307,7 @@ function PassengerFlow({ reports, buses, selectedBusRoute, onBusChange, onCrowdE
           })}
         </div>
       )}
-      <p className="flow-disclaimer">Boarding, alighting, and occupancy are camera estimates from people crossing the configured bus-door line, not a count of the stop crowd. Occupancy starts at the configured initial count and does not change when a track merely disappears. Confidence is a detector score, not a calibrated accuracy guarantee.</p>
+      <p className="flow-disclaimer">YOLO person detections are tracked locally with ByteTrack. Boarding, alighting, and occupancy are estimates from people crossing the configured bus-door line, not a count of people waiting at the stop. Occupancy starts at the configured initial count and does not change when a track merely disappears. Confidence is a detector score, not a calibrated accuracy guarantee.</p>
     </section>
   )
 }

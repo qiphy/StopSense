@@ -62,6 +62,7 @@ class Reading(BaseModel):
 
 class PassengerCount(BaseModel):
     camera_id: str = Field(min_length=1, max_length=64)
+    bus_route: str | None = Field(default=None, min_length=1, max_length=32)
     observed_at: datetime
     boarding_count: int = Field(ge=0)
     alighting_count: int = Field(ge=0)
@@ -114,9 +115,12 @@ def initialize_db() -> None:
         }
         if passenger_count_columns and "occupancy_count" not in passenger_count_columns:
             connection.execute("ALTER TABLE passenger_counts ADD COLUMN occupancy_count INTEGER")
+        if passenger_count_columns and "bus_route" not in passenger_count_columns:
+            connection.execute("ALTER TABLE passenger_counts ADD COLUMN bus_route TEXT")
         connection.execute(
             """CREATE TABLE IF NOT EXISTS passenger_counts (
                 camera_id TEXT PRIMARY KEY,
+                bus_route TEXT,
                 observed_at TEXT NOT NULL,
                 boarding_count INTEGER NOT NULL CHECK (boarding_count >= 0),
                 alighting_count INTEGER NOT NULL CHECK (alighting_count >= 0),
@@ -239,9 +243,11 @@ def receive_passenger_count(count: PassengerCount) -> dict[str, object]:
     with closing(connect_db()) as connection:
         connection.execute(
             """INSERT INTO passenger_counts (
-                   camera_id, observed_at, boarding_count, alighting_count, occupancy_count, confidence, status
-               ) VALUES (?, ?, ?, ?, ?, ?, ?)
+                   camera_id, bus_route, observed_at, boarding_count, alighting_count,
+                   occupancy_count, confidence, status
+               ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
                ON CONFLICT(camera_id) DO UPDATE SET
+                   bus_route = COALESCE(excluded.bus_route, passenger_counts.bus_route),
                    observed_at = excluded.observed_at,
                    boarding_count = excluded.boarding_count,
                    alighting_count = excluded.alighting_count,
@@ -250,6 +256,7 @@ def receive_passenger_count(count: PassengerCount) -> dict[str, object]:
                    status = excluded.status""",
             (
                 payload["camera_id"],
+                payload["bus_route"],
                 payload["observed_at"],
                 payload["boarding_count"],
                 payload["alighting_count"],
@@ -267,8 +274,8 @@ def receive_passenger_count(count: PassengerCount) -> dict[str, object]:
 def list_passenger_counts(
     camera_id: str | None = Query(default=None, max_length=64),
 ) -> dict[str, list[dict[str, object]]]:
-    sql = """SELECT camera_id, observed_at, boarding_count, alighting_count, occupancy_count,
-                    confidence, status
+    sql = """SELECT camera_id, bus_route, observed_at, boarding_count, alighting_count,
+                    occupancy_count, confidence, status
              FROM passenger_counts"""
     params: list[object] = []
     if camera_id:
