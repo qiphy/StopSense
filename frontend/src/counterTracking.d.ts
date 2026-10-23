@@ -5,6 +5,7 @@ export type CounterTrack = {
   side: 'before' | 'after' | null
   anchor: number
   center: Point
+  velocity?: Point
   bbox: [number, number, number, number]
   confidence: number
   lastSeen: number

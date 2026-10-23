@@ -19,7 +19,13 @@ export function trackPeople(detections, tracks, nextTrackId, options) {
     const center = { x: x + boxWidth / 2, y: y + boxHeight * 0.72 }
     for (const track of tracks.values()) {
       if (now - track.lastSeen > 700) continue
-      const distance = Math.hypot(center.x - track.center.x, center.y - track.center.y)
+      const elapsed = now - track.lastSeen
+      const velocity = track.velocity ?? { x: 0, y: 0 }
+      const predictedCenter = {
+        x: track.center.x + velocity.x * elapsed,
+        y: track.center.y + velocity.y * elapsed,
+      }
+      const distance = Math.hypot(center.x - predictedCenter.x, center.y - predictedCenter.y)
       if (distance < matchDistance) candidateMatches.push({ detectionIndex, trackId: track.id, distance })
     }
   }
@@ -46,8 +52,20 @@ export function trackPeople(detections, tracks, nextTrackId, options) {
     const closest = matchedTrackId === undefined ? undefined : updatedTracks.get(matchedTrackId)
     const track = closest || {
       id: nextTrackId++, frames: 0, side: null, anchor: coordinate,
-      center, bbox: detection.bbox, confidence: detection.score, lastSeen: now,
-      lastCountAt: 0,
+      center, velocity: { x: 0, y: 0 }, bbox: detection.bbox,
+      confidence: detection.score, lastSeen: now, lastCountAt: 0,
+    }
+    const elapsed = now - track.lastSeen
+    if (track.frames > 0 && elapsed > 0) {
+      const measuredVelocity = {
+        x: (center.x - track.center.x) / elapsed,
+        y: (center.y - track.center.y) / elapsed,
+      }
+      const previousVelocity = track.velocity ?? { x: 0, y: 0 }
+      track.velocity = {
+        x: previousVelocity.x * 0.35 + measuredVelocity.x * 0.65,
+        y: previousVelocity.y * 0.35 + measuredVelocity.y * 0.65,
+      }
     }
     track.center = center
     track.bbox = detection.bbox

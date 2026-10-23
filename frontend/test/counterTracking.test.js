@@ -50,6 +50,17 @@ test('counts multiple people alighting in the same frame', () => {
   assert.equal(result.alighting, 3)
 })
 
+test('keeps opposite-moving people on their tracks as they pass each other', () => {
+  let result = frame([person(180), person(260)], 0)
+  result = frame([person(210), person(230)], 100, result.tracks, result.nextTrackId)
+  result = frame([person(240), person(200)], 200, result.tracks, result.nextTrackId)
+
+  assert.equal(result.boarding, 1)
+  assert.equal(result.alighting, 1)
+  assert.equal(result.people[0].trackId, 1)
+  assert.equal(result.people[1].trackId, 2)
+})
+
 test('counts a crowded frame with more than 20 people crossing together', () => {
   const xPositions = Array.from({ length: 25 }, (_, index) => 80 + index * 95)
   let result = frame(xPositions.map((x) => person(180, 0.9, x)), 0, new Map(), 1, { width: 2500 })
