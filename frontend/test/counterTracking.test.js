@@ -50,6 +50,17 @@ test('counts multiple people alighting in the same frame', () => {
   assert.equal(result.alighting, 3)
 })
 
+test('counts a crowded frame with more than 20 people crossing together', () => {
+  const xPositions = Array.from({ length: 25 }, (_, index) => 80 + index * 95)
+  let result = frame(xPositions.map((x) => person(180, 0.9, x)), 0, new Map(), 1, { width: 2500 })
+  result = frame(xPositions.map((x) => person(190, 0.9, x)), 100, result.tracks, result.nextTrackId, { width: 2500 })
+  result = frame(xPositions.map((x) => person(240, 0.9, x)), 200, result.tracks, result.nextTrackId, { width: 2500 })
+
+  assert.equal(result.boarding, 25)
+  assert.equal(result.people.length, 25)
+  assert.equal(new Set(result.people.map((detection) => detection.trackId)).size, 25)
+})
+
 test('applies confidence filtering and configurable crossing direction', () => {
   const lowConfidence = frame([person(180, 0.3)], 0)
   assert.equal(lowConfidence.people.length, 0)

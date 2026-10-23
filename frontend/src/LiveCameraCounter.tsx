@@ -10,6 +10,7 @@ type Direction = 'up' | 'down' | 'left' | 'right'
 const CAMERA_ID = 'browser-camera-01'
 const DEFAULT_POSITION = 55
 const DEFAULT_CONFIDENCE = 0.4
+const MAX_DETECTIONS_PER_FRAME = 100
 
 export default function LiveCameraCounter({ apiUrl, buses, selectedBusRoute, onBusChange }: { apiUrl: string; buses: Bus[]; selectedBusRoute: string; onBusChange: (route: string) => void }) {
   const videoRef = useRef<HTMLVideoElement>(null)
@@ -21,8 +22,8 @@ export default function LiveCameraCounter({ apiUrl, buses, selectedBusRoute, onB
   const tracksRef = useRef<Map<number, Track>>(new Map())
   const nextTrackIdRef = useRef(1)
   const frameRef = useRef(0)
-  const modelRef = useRef<{ detect: (video: HTMLVideoElement) => Promise<Detection[]> } | null>(null)
-  const modelPromiseRef = useRef<Promise<{ detect: (video: HTMLVideoElement) => Promise<Detection[]> }> | null>(null)
+  const modelRef = useRef<{ detect: (video: HTMLVideoElement, maxNumBoxes: number, minScore: number) => Promise<Detection[]> } | null>(null)
+  const modelPromiseRef = useRef<Promise<{ detect: (video: HTMLVideoElement, maxNumBoxes: number, minScore: number) => Promise<Detection[]> }> | null>(null)
   const lastCrossingAtRef = useRef(0)
   const countsRef = useRef<Counts>({ boarding: 0, alighting: 0, occupancy: 0 })
   const confidenceRef = useRef({ sum: 0, count: 0 })
@@ -144,7 +145,7 @@ export default function LiveCameraCounter({ apiUrl, buses, selectedBusRoute, onB
             await tf.ready()
             const cocoSsd = await import('@tensorflow-models/coco-ssd')
             const loaded = await cocoSsd.load({ base: 'mobilenet_v2' })
-            return { detect: (element: HTMLVideoElement) => loaded.detect(element) as Promise<Detection[]> }
+            return { detect: (element: HTMLVideoElement, maxNumBoxes: number, minScore: number) => loaded.detect(element, maxNumBoxes, minScore) as Promise<Detection[]> }
           })()
         }
         model = await modelPromiseRef.current
@@ -174,7 +175,7 @@ export default function LiveCameraCounter({ apiUrl, buses, selectedBusRoute, onB
         const video = videoRef.current
         if (!runningRef.current || !video || video.readyState < HTMLMediaElement.HAVE_CURRENT_DATA) return
         try {
-          const detections = await model.detect(video)
+          const detections = await model.detect(video, MAX_DETECTIONS_PER_FRAME, confidenceThreshold)
           const now = performance.now()
           const frame = ++frameRef.current
           const canvas = canvasRef.current
