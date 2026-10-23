@@ -168,7 +168,7 @@ export function ScreenSampleAd({ stopId }: { stopId: string }) {
         <div className="screen-ad-track" style={{ transform: `translateX(-${activeSlide * 100}%)` }}>
           {slides.map((slide, index) => (
             <article className="screen-ad-slide" key={slide.label} aria-label={`Advertisement ${index + 1} of ${slides.length}`}>
-              <div className="screen-ad-art" aria-hidden="true"><span>{slide.visual}</span><small>StopSense<br />LOCAL PICKS</small></div>
+              <div className="screen-ad-art" aria-hidden="true"><span>{slide.visual}</span><small>CoolStop<br />LOCAL PICKS</small></div>
               <div className="screen-ad-copy"><span className="screen-ad-label">{slide.label}</span><strong>{slide.title}</strong><span>{slide.shop}</span><small>{slide.detail}</small></div>
               <div className="screen-ad-route"><strong>{index === 0 ? 'ROUTE & OFFER' : 'SCAN FOR MORE'}</strong>{slide.directions.map((line) => <span key={line}>{line}</span>)}<small>Sample information only.</small></div>
               <LocalQr value={slide.qrValue} label={slide.qrLabel} />

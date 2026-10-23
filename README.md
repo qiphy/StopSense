@@ -1,4 +1,4 @@
-# StopSense bus-stop telemetry prototype
+# CoolStop bus-stop telemetry prototype
 
 A local prototype with a **React + TypeScript frontend**, FastAPI telemetry API, SQLite storage, and a simulated device:
 
@@ -67,7 +67,7 @@ npm run build
 npm run preview
 ```
 
-The development proxy only applies to `npm run dev`. Production builds read `VITE_API_URL` from `frontend/.env.production`, currently set to `https://stopsense.onrender.com`; changing it requires rebuilding and redeploying the static site. The FastAPI app allows browser requests from `https://qiphy.github.io` for its read-only API endpoints. Deploy the updated backend as well as the frontend so the CORS configuration takes effect.
+The development proxy only applies to `npm run dev`. Production builds read `VITE_API_URL` from `frontend/.env.production`, currently set to `https://CoolStop.onrender.com`; changing it requires rebuilding and redeploying the static site. The FastAPI app allows browser requests from `https://qiphy.github.io` for its read-only API endpoints. Deploy the updated backend as well as the frontend so the CORS configuration takes effect.
 
 ### Solar generation and reference energy use
 
@@ -110,9 +110,9 @@ For real deployment, only report a stop crowd level from a verified source (for 
 
 ### Local doorway passenger counter (boarding/alighting/occupancy)
 
-The Operations view keeps the StopSense dashboard and telemetry intact. Its browser webcam counter adapts CrowdCounter1’s TensorFlow.js COCO-SSD (`mobilenet_v2`) person detector, confidence filtering, lower-body point tracking, configurable horizontal/vertical counting line, direction selection, and crossing safeguards (multiple observations, minimum travel distance, and per-track cooldown). Person boxes and track IDs are drawn over the local preview. This browser path does not use YOLO. Camera video stays in the browser and only aggregate reports are posted to `POST /passenger-counts`. The browser counter requires a secure page (HTTPS or localhost) and camera permission. Choose a bus route in the controls; reports are associated with that route and appear in Operations. These doorway crossings estimate boarding/alighting and onboard occupancy; they do not measure the crowd waiting at the stop.
+The Operations view keeps the CoolStop dashboard and telemetry intact. Its browser webcam counter adapts CrowdCounter1’s TensorFlow.js COCO-SSD (`mobilenet_v2`) person detector, confidence filtering, lower-body point tracking, configurable horizontal/vertical counting line, direction selection, and crossing safeguards (multiple observations, minimum travel distance, and per-track cooldown). Person boxes and track IDs are drawn over the local preview. This browser path does not use YOLO. Camera video stays in the browser and only aggregate reports are posted to `POST /passenger-counts`. The browser counter requires a secure page (HTTPS or localhost) and camera permission. Choose a bus route in the controls; reports are associated with that route and appear in Operations. These doorway crossings estimate boarding/alighting and onboard occupancy; they do not measure the crowd waiting at the stop.
 
-A separate optional Python counter is available for a camera host and uses Ultralytics YOLOv8n + ByteTrack. It can be used instead of the browser counter; it is not loaded or run by the browser. On the computer connected to the camera, install the optional camera dependencies from the StopSense project root:
+A separate optional Python counter is available for a camera host and uses Ultralytics YOLOv8n + ByteTrack. It can be used instead of the browser counter; it is not loaded or run by the browser. On the computer connected to the camera, install the optional camera dependencies from the CoolStop project root:
 
 ```bash
 python -m pip install -r requirements-camera.txt
