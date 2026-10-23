@@ -84,12 +84,30 @@ function App() {
   const [selectedBusRoute, setSelectedBusRoute] = useState(routes[0].route)
   const [busCrowdEstimates, setBusCrowdEstimates] = useState<Record<string, BusCrowdEstimate>>({})
   const [view, setView] = useState<View>('passenger')
+  const [theme, setTheme] = useState<'light' | 'dark'>(() => {
+    try {
+      const savedTheme = localStorage.getItem('StopSense-theme')
+      if (savedTheme === 'light' || savedTheme === 'dark') return savedTheme
+    } catch {
+      // Keep the default theme when browser storage is unavailable.
+    }
+    return window.matchMedia?.('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'
+  })
   const [now, setNow] = useState(Date.now())
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [usingPreview, setUsingPreview] = useState(false)
   const [streamConnected, setStreamConnected] = useState(false)
   const [appLinkNotice, setAppLinkNotice] = useState<{ kind: 'voucher' | 'route' | 'alternatives'; value: string } | null>(null)
+
+  useEffect(() => {
+    document.documentElement.dataset.theme = theme
+    try {
+      localStorage.setItem('StopSense-theme', theme)
+    } catch {
+      // Theme still applies for this session when storage is unavailable.
+    }
+  }, [theme])
 
   useEffect(() => {
     const readAppLink = () => {
@@ -176,6 +194,7 @@ function App() {
         </a>
         <div className="topbar-right">
           <span className={`connection ${error ? 'connection-offline' : ''}`}><i />{error ? 'Preview mode' : 'Demo system'}</span>
+          <button type="button" className="theme-toggle" onClick={() => setTheme((current) => current === 'dark' ? 'light' : 'dark')} aria-label={`Switch to ${theme === 'dark' ? 'light' : 'dark'} mode`} aria-pressed={theme === 'dark'}><span aria-hidden="true">{theme === 'dark' ? '☀' : '☾'}</span><span>{theme === 'dark' ? 'Light mode' : 'Dark mode'}</span></button>
           <button className="avatar" aria-label="Demo profile">DS</button>
         </div>
       </header>

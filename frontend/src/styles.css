@@ -33,3 +33,73 @@
 @media(max-width:650px){.shop-offer-details{grid-template-columns:1fr}}
 @media(max-width:480px){.shop-offer-slide{grid-template-columns:86px minmax(0,1fr);gap:12px;min-height:148px;padding:10px}.shop-offer-art{min-height:124px}.shop-offer-art>span{font-size:32px}.shop-offer-main>div{gap:6px}.shop-offer-main .card-kicker{font-size:8px}.shop-offer-main .simulated-tag{padding:4px 6px;font-size:7px}.shop-offer-main>strong{font-size:16px}.shop-offer-main>span{font-size:10px}.shop-offer-link{font-size:10px}.shop-offer-pagination{font-size:8px}}
 @media(prefers-reduced-motion:reduce){.screen-ad-track,.shop-offer-track{transition:none}}
+
+html[data-theme='dark']{color-scheme:dark;--ink:#e4ece6;--muted:#a1b0a6;--line:#35453b;--green:#69bd8b;--pale:#24372b;--card:#202c24;background:#151d18}
+html[data-theme='dark'] body{background:radial-gradient(ellipse at 88% 9%,#1c2a20 0,transparent 34%),#151d18;color:#e4ece6}
+html[data-theme='dark'] .topbar{background:#1b261fef;border-color:#344239}
+html[data-theme='dark'] .brand,html[data-theme='dark'] .page-heading h1,html[data-theme='dark'] .condition-value{color:#e4ece6}
+html[data-theme='dark'] .brand small,html[data-theme='dark'] .page-heading p,html[data-theme='dark'] .stop-label small,html[data-theme='dark'] .condition-label,html[data-theme='dark'] .condition-detail{color:#a1b0a6}
+html[data-theme='dark'] .updated-pill,html[data-theme='dark'] .select-wrap select,html[data-theme='dark'] .view-switcher,html[data-theme='dark'] .view-switcher button.active{background:#243229;color:#d8e4da;border-color:#394b40}
+html[data-theme='dark'] .view-switcher button{color:#a5b5aa}
+html[data-theme='dark'] .view-switcher button.active{box-shadow:0 1px 5px #0005}
+html[data-theme='dark'] .stop-label strong,html[data-theme='dark'] .footer{color:#aab8ae}
+html[data-theme='dark'] .comfort-card,html[data-theme='dark'] .screen-notes,html[data-theme='dark'] .ops-panel,html[data-theme='dark'] .ops-metric,html[data-theme='dark'] .shop-offer-card,html[data-theme='dark'] .journey-options,html[data-theme='dark'] .passenger-flow-panel,html[data-theme='dark'] .bus-crowd-card,html[data-theme='dark'] .flow-camera,html[data-theme='dark'] .loading-card{background:#202c24;border-color:#35453b;color:#dce6df;box-shadow:0 4px 18px #0002}
+html[data-theme='dark'] .card-kicker,html[data-theme='dark'] .eyebrow,html[data-theme='dark'] .flow-separation-note,html[data-theme='dark'] .flow-empty,html[data-theme='dark'] .panel-footnote,html[data-theme='dark'] .ops-label,html[data-theme='dark'] .service-destination,html[data-theme='dark'] .health-row span,html[data-theme='dark'] .flow-counts span,html[data-theme='dark'] .flow-confidence>span,html[data-theme='dark'] .flow-updated,html[data-theme='dark'] .prototype-note,html[data-theme='dark'] .shop-offer-pagination{color:#a6b5aa}
+html[data-theme='dark'] .section-heading h2,html[data-theme='dark'] .operations-heading h2,html[data-theme='dark'] .panel-heading h3,html[data-theme='dark'] .ops-metric>strong,html[data-theme='dark'] .health-row strong,html[data-theme='dark'] .flow-camera-title strong,html[data-theme='dark'] .shop-offer-main>strong,html[data-theme='dark'] .journey-options-heading h2{color:#e4ece6}
+html[data-theme='dark'] .condition-item,html[data-theme='dark'] .service-row,html[data-theme='dark'] .health-row,html[data-theme='dark'] .flow-camera,html[data-theme='dark'] .shop-offer-slide,html[data-theme='dark'] .shop-directions,html[data-theme='dark'] .shop-voucher,html[data-theme='dark'] .shop-route-qr{border-color:#35453b}
+html[data-theme='dark'] .comfort-tip,html[data-theme='dark'] .live-tag,html[data-theme='dark'] .device-dot,html[data-theme='dark'] .flow-empty,html[data-theme='dark'] .flow-counts>div,html[data-theme='dark'] .shop-directions,html[data-theme='dark'] .shop-voucher,html[data-theme='dark'] .shop-route-qr,html[data-theme='dark'] .sample-transit-alternatives,html[data-theme='dark'] .journey-location-prompt,html[data-theme='dark'] .flow-separation-note{background:#29382e;color:#c8d6cc}
+html[data-theme='dark'] .comfort-tip strong,html[data-theme='dark'] .shop-directions>strong,html[data-theme='dark'] .shop-voucher>strong,html[data-theme='dark'] .shop-route-qr>strong,html[data-theme='dark'] .sample-transit-alternatives strong{color:#dce9df}
+html[data-theme='dark'] .comfort-tip small,html[data-theme='dark'] .shop-directions small,html[data-theme='dark'] .shop-voucher>span,html[data-theme='dark'] .shop-route-qr>span,html[data-theme='dark'] .sample-transit-alternatives span,html[data-theme='dark'] .sample-transit-alternatives small{color:#aebdb2}
+html[data-theme='dark'] .site-summary{background:#25362b}
+html[data-theme='dark'] .site-summary span,html[data-theme='dark'] .site-summary>small,html[data-theme='dark'] .screen-notes p{color:#a5b3a9}
+html[data-theme='dark'] .site-summary strong{color:#83d49d}
+html[data-theme='dark'] .solar-panel{background:linear-gradient(120deg,#27291f,#222a23);border-color:#4b4937;color:#e5e3d7}
+html[data-theme='dark'] .solar-heading h2,html[data-theme='dark'] .energy-breakdown-heading strong,html[data-theme='dark'] .energy-row>span strong{color:#e4e1d2}
+html[data-theme='dark'] .solar-metrics span,html[data-theme='dark'] .solar-panel>p,html[data-theme='dark'] .energy-breakdown-heading span,html[data-theme='dark'] .energy-row small{color:#b0aa92}
+html[data-theme='dark'] .solar-metrics strong,html[data-theme='dark'] .energy-row>b,html[data-theme='dark'] .energy-reference-summary{color:#d5c58f}
+html[data-theme='dark'] .energy-breakdown{background:#282a23;border-color:#484638}
+html[data-theme='dark'] .energy-breakdown-heading,html[data-theme='dark'] .energy-row{border-color:#414137}
+html[data-theme='dark'] .demo-notice{background:#352f22;border-color:#5c4d31;color:#e3cb91}
+html[data-theme='dark'] .demo-notice .notice-icon{background:#514329}
+html[data-theme='dark'] .preview-notice{background:#252f29;border-color:#3b4a40;color:#bdc9bf}
+html[data-theme='dark'] .preview-notice .notice-icon{background:#39483e}
+html[data-theme='dark'] .app-link-notice{background:#24372b;border-color:#405848;color:#d0e1d5}
+html[data-theme='dark'] .app-link-notice strong{color:#e1eee4}
+html[data-theme='dark'] .app-link-notice small{color:#b4c4b9}
+html[data-theme='dark'] .app-link-notice button,html[data-theme='dark'] .shop-offer-link,html[data-theme='dark'] .text-action{color:#8bd4a2}
+html[data-theme='dark'] .theme-toggle{border-color:#46564b;background:#29372e;color:#e2ece4}
+html[data-theme='dark'] .theme-toggle:hover{background:#35473a}
+html[data-theme='dark'] .bus-crowd-reading>span,html[data-theme='dark'] .bus-crowd-note{color:#acb9af}
+html[data-theme='dark'] .bus-crowd-chip,html[data-theme='dark'] .ride-partner{background:#26342b;border-color:#3d4d42;color:#c6d4ca}
+html[data-theme='dark'] .bus-crowd-chip strong,html[data-theme='dark'] .ride-partner strong{color:#e1ebe3}
+html[data-theme='dark'] .bus-crowd-chip.selected,html[data-theme='dark'] .ride-partner.selected{background:#2d4936;border-color:#5c936b}
+html[data-theme='dark'] .live-camera-heading select,html[data-theme='dark'] .live-camera-controls button,html[data-theme='dark'] .live-camera-heading input,html[data-theme='dark'] .camera-facing-toggle,html[data-theme='dark'] .destination-select select{background:#26342b;border-color:#46564b;color:#dce7de}
+html[data-theme='dark'] .live-camera-message,html[data-theme='dark'] .live-camera-privacy,html[data-theme='dark'] .location-status,html[data-theme='dark'] .journey-location-prompt>span{color:#b1bfb5}
+html[data-theme='dark'] .live-video-wrap,html[data-theme='dark'] .flow-counts>div{background:#18221b}
+html[data-theme='dark'] .ride-confirmation{background:#263b2d;border-color:#42644a;color:#d1e6d5}
+html[data-theme='dark'] .flow-confidence>div{background:#39473d}
+html[data-theme='dark'] .screen-notes{background:#202c24}
+.theme-toggle{display:inline-flex;align-items:center;gap:7px;padding:8px 11px;border:1px solid #e0e8e2;border-radius:20px;background:#fff;color:#45614e;font-size:11px;font-weight:650;cursor:pointer;transition:background .18s,border-color .18s,color .18s}
+.theme-toggle>span:first-child{font-size:15px;line-height:1}
+.theme-toggle:hover{background:#f1f6f2}
+@media(max-width:560px){.topbar{gap:8px}.topbar-right{gap:9px}.theme-toggle{width:36px;height:36px;justify-content:center;padding:0}.theme-toggle>span:last-child{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap}}
+html[data-theme='dark'] .live-camera{background:#202c24;border-color:#3a4b3f;color:#dce6df}
+html[data-theme='dark'] .live-camera-heading strong{color:#e0ebe3}
+html[data-theme='dark'] .live-camera-heading span,html[data-theme='dark'] .live-camera-heading label,html[data-theme='dark'] .live-local-counts span{color:#b3c0b6}
+html[data-theme='dark'] .live-local-counts strong{color:#83d49d}
+html[data-theme='dark'] .disruption-banner{background:#352f22;border-color:#625236;color:#e3cb91}
+html[data-theme='dark'] .journey-demo-controls>span{color:#d8bd83}
+html[data-theme='dark'] .destination-select{color:#b2c0b6}
+html[data-theme='dark'] .sample-transit-alternatives{background:#29382e;border-left-color:#65ac7c;color:#c7d5cb}
+html[data-theme='dark'] .sample-transit-alternatives>strong{color:#e0ebe3}
+html[data-theme='dark'] .ride-partner>span{color:#85d49d}
+html[data-theme='dark'] .ride-partner small{color:#b0beb4}
+html[data-theme='dark'] .flow-camera{background:#202c24}
+html[data-theme='dark'] .flow-status{background:#294232;color:#a6d8b3}
+html[data-theme='dark'] .flow-status-degraded,html[data-theme='dark'] .flow-status-stale{background:#443a27;color:#e3c789}
+html[data-theme='dark'] .flow-status-offline,html[data-theme='dark'] .flow-status-error{background:#472f2a;color:#e4a18c}
+html[data-theme='dark'] .fault-banner{background:#382a25;border-color:#5b3b30;color:#e5a98f}
+html[data-theme='dark'] .fault-banner span{color:#c9a192}
+html[data-theme='dark'] .flow-confidence>span strong{color:#9dd4aa}
+html[data-theme='dark'] .journey-options-heading .simulated-tag{background:#3b3527;color:#e4cd92}
+html[data-theme='dark'] .select-wrap select option,html[data-theme='dark'] select option{background:#202c24;color:#e4ece6}
