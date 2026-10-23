@@ -2,7 +2,7 @@ import assert from 'node:assert/strict'
 import test from 'node:test'
 import { trackPeople } from '../src/counterTracking.js'
 
-const person = (centerY, score = 0.9) => ({ class: 'person', score, bbox: [100, centerY - 72, 40, 100] })
+const person = (centerY, score = 0.9, centerX = 120) => ({ class: 'person', score, bbox: [centerX - 20, centerY - 72, 40, 100] })
 const options = (now, overrides = {}) => ({
   now,
   orientation: 'horizontal',
@@ -27,6 +27,27 @@ test('tracks people across the line and counts a boarding after three observatio
   assert.equal(result.alighting, 0)
   assert.equal(result.people[0].trackId, 1)
   assert.equal(result.confidenceCount, 1)
+})
+
+test('counts multiple people boarding in the same frame', () => {
+  const xPositions = [90, 300, 520]
+  let result = frame(xPositions.map((x) => person(180, 0.9, x)), 0)
+  result = frame(xPositions.map((x) => person(190, 0.9, x)), 100, result.tracks, result.nextTrackId)
+  result = frame(xPositions.map((x) => person(240, 0.9, x)), 200, result.tracks, result.nextTrackId)
+
+  assert.equal(result.boarding, 3)
+  assert.equal(result.alighting, 0)
+  assert.equal(new Set(result.people.map((detection) => detection.trackId)).size, 3)
+})
+
+test('counts multiple people alighting in the same frame', () => {
+  const xPositions = [90, 300, 520]
+  let result = frame(xPositions.map((x) => person(240, 0.9, x)), 0)
+  result = frame(xPositions.map((x) => person(230, 0.9, x)), 100, result.tracks, result.nextTrackId)
+  result = frame(xPositions.map((x) => person(180, 0.9, x)), 200, result.tracks, result.nextTrackId)
+
+  assert.equal(result.boarding, 0)
+  assert.equal(result.alighting, 3)
 })
 
 test('applies confidence filtering and configurable crossing direction', () => {

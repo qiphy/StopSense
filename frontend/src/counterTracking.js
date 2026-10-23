@@ -12,8 +12,25 @@ export function trackPeople(detections, tracks, nextTrackId, options) {
   const people = detections
     .filter((item) => item.class === 'person' && item.score >= confidenceThreshold)
     .sort((a, b) => b.score - a.score)
-  const used = new Set()
   const updatedTracks = new Map(tracks)
+  const candidateMatches = []
+  for (let detectionIndex = 0; detectionIndex < people.length; detectionIndex += 1) {
+    const [x, y, boxWidth, boxHeight] = people[detectionIndex].bbox
+    const center = { x: x + boxWidth / 2, y: y + boxHeight * 0.72 }
+    for (const track of tracks.values()) {
+      if (now - track.lastSeen > 700) continue
+      const distance = Math.hypot(center.x - track.center.x, center.y - track.center.y)
+      if (distance < matchDistance) candidateMatches.push({ detectionIndex, trackId: track.id, distance })
+    }
+  }
+  candidateMatches.sort((a, b) => a.distance - b.distance)
+  const matchedDetections = new Map()
+  const matchedTracks = new Set()
+  for (const candidate of candidateMatches) {
+    if (matchedDetections.has(candidate.detectionIndex) || matchedTracks.has(candidate.trackId)) continue
+    matchedDetections.set(candidate.detectionIndex, candidate.trackId)
+    matchedTracks.add(candidate.trackId)
+  }
   let boarding = 0
   let alighting = 0
   let confidenceSum = 0
@@ -21,21 +38,12 @@ export function trackPeople(detections, tracks, nextTrackId, options) {
   let lastCrossingAt = null
   const positiveDirectionIsEntry = enteringDirection === 'down' || enteringDirection === 'right'
 
-  for (const detection of people) {
+  for (const [detectionIndex, detection] of people.entries()) {
     const [x, y, boxWidth, boxHeight] = detection.bbox
     const center = { x: x + boxWidth / 2, y: y + boxHeight * 0.72 }
     const coordinate = orientation === 'horizontal' ? center.y : center.x
-    let closest
-    let closestDistance = matchDistance
-    for (const candidate of updatedTracks.values()) {
-      if (used.has(candidate.id) || now - candidate.lastSeen > 700) continue
-      const distance = Math.hypot(center.x - candidate.center.x, center.y - candidate.center.y)
-      if (distance < closestDistance) {
-        closest = candidate
-        closestDistance = distance
-      }
-    }
-
+    const matchedTrackId = matchedDetections.get(detectionIndex)
+    const closest = matchedTrackId === undefined ? undefined : updatedTracks.get(matchedTrackId)
     const track = closest || {
       id: nextTrackId++, frames: 0, side: null, anchor: coordinate,
       center, bbox: detection.bbox, confidence: detection.score, lastSeen: now,
@@ -46,7 +54,6 @@ export function trackPeople(detections, tracks, nextTrackId, options) {
     track.confidence = detection.score
     track.frames += 1
     track.lastSeen = now
-    used.add(track.id)
 
     if (track.side === null) {
       if (coordinate < line - padding) track.side = 'before'
