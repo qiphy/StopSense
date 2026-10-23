@@ -103,3 +103,9 @@ html[data-theme='dark'] .fault-banner span{color:#c9a192}
 html[data-theme='dark'] .flow-confidence>span strong{color:#9dd4aa}
 html[data-theme='dark'] .journey-options-heading .simulated-tag{background:#3b3527;color:#e4cd92}
 html[data-theme='dark'] .select-wrap select option,html[data-theme='dark'] select option{background:#202c24;color:#e4ece6}
+html[data-theme='dark'] .operations-view{background:transparent}
+html[data-theme='dark'] .state-badge{background:#29382e;border-color:#3e5646;color:#a3d2ad}
+html[data-theme='dark'] .state-badge.fault{background:#382a25;border-color:#5b3b30;color:#e5a98f}
+html[data-theme='dark'] .ops-icon{background:#29382e;color:#8bd29e}
+html[data-theme='dark'] .metric-alert{border-color:#5b4236}
+html[data-theme='dark'] .metric-alert .ops-icon{background:#44342b;color:#e5a98f}
